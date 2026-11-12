@@ -1,857 +1,438 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>archiveVersion</key>
-    <string>1</string>
-    <key>classes</key>
-    <dict/>
-    <key>objectVersion</key>
-    <integer>52</integer>
-    <key>objects</key>
-    <dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4D</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXProject</string>
-            <key>attributes</key>
-            <dict>
-                <key>LastSwiftUpdateCheck</key>
-                <string>0920</string>
-                <key>LastUpgradeCheck</key>
-                <string>0920</string>
-                <key>TargetAttributes</key>
-                <dict>
-                    <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4E</key>
-                    <dict>
-                        <key>DevelopmentTeam</key>
-                        <string></string>
-                        <key>LastSwiftMigration</key>
-                        <string>0920</string>
-                    </dict>
-                </dict>
-            </dict>
-            <key>buildConfigurationList</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C7C</string>
-            <key>compatibilityVersion</key>
-            <string>Xcode 13.0</string>
-            <key>defaultConfigurationIsVisible</key>
-            <integer>0</integer>
-            <key>defaultConfigurationName</key>
-            <string>Debug</string>
-            <key>developmentRegion</key>
-            <string>en</string>
-            <key>hasScannedForEncodings</key>
-            <integer>0</integer>
-            <key>knownRegions</key>
-            <array>
-                <string>en</string>
-                <string>Base</string>
-            </array>
-            <key>mainGroup</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6A</string>
-            <key>productRefGroup</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6B</string>
-            <key>projectDirPath</key>
-            <string></string>
-            <key>projectRoot</key>
-            <string></string>
-            <key>targets</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4E</string>
-            </array>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4E</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXNativeTarget</string>
-            <key>buildConfigurationList</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C7C</string>
-            <key>buildPhases</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C77</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C78</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C79</string>
-            </array>
-            <key>buildRules</key>
-            <array/>
-            <key>dependencies</key>
-            <array/>
-            <key>name</key>
-            <string>Nola</string>
-            <key>productName</key>
-            <string>Nola</string>
-            <key>productReference</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4F</string>
-            <key>productType</key>
-            <string>com.apple.product-type.application</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4F</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>explicitFileType</key>
-            <string>wrapper.application</string>
-            <key>includeInIndex</key>
-            <integer>0</integer>
-            <key>path</key>
-            <string>Nola.app</string>
-            <key>sourceTree</key>
-            <string>BUILT_PRODUCTS_DIR</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C50</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>lastKnownFileType</key>
-            <string>sourcecode.swift</string>
-            <key>path</key>
-            <string>NolaApp.swift</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C51</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>lastKnownFileType</key>
-            <string>sourcecode.swift</string>
-            <key>path</key>
-            <string>AppState.swift</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C52</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>lastKnownFileType</key>
-            <string>sourcecode.swift</string>
-            <key>path</key>
-            <string>AppNavigation.swift</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C53</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>lastKnownFileType</key>
-            <string>sourcecode.swift</string>
-            <key>path</key>
-            <string>PersistenceController.swift</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C54</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>lastKnownFileType</key>
-            <string>sourcecode.swift</string>
-            <key>path</key>
-            <string>JournalEntry.swift</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C55</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>lastKnownFileType</key>
-            <string>sourcecode.swift</string>
-            <key>path</key>
-            <string>AppColors.swift</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C56</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>lastKnownFileType</key>
-            <string>sourcecode.swift</string>
-            <key>path</key>
-            <string>AppTypography.swift</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C57</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>lastKnownFileType</key>
-            <string>sourcecode.swift</string>
-            <key>path</key>
-            <string>DateHelpers.swift</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C58</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>lastKnownFileType</key>
-            <string>sourcecode.swift</string>
-            <key>path</key>
-            <string>TodayView.swift</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C59</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>lastKnownFileType</key>
-            <string>sourcecode.swift</string>
-            <key>path</key>
-            <string>TodayViewModel.swift</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5A</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>lastKnownFileType</key>
-            <string>text.plist.xml</string>
-            <key>path</key>
-            <string>Info.plist</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5B</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>lastKnownFileType</key>
-            <string>folder.assetcatalog</string>
-            <key>path</key>
-            <string>Assets.xcassets</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5C</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFileReference</string>
-            <key>lastKnownFileType</key>
-            <string>wrapper.xcdatamodeld</string>
-            <key>path</key>
-            <string>Nola.xcdatamodeld</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5D</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXBuildFile</string>
-            <key>fileRef</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C50</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5E</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXBuildFile</string>
-            <key>fileRef</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C51</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5F</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXBuildFile</string>
-            <key>fileRef</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C52</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C60</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXBuildFile</string>
-            <key>fileRef</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C53</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C61</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXBuildFile</string>
-            <key>fileRef</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C54</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C62</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXBuildFile</string>
-            <key>fileRef</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C55</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C63</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXBuildFile</string>
-            <key>fileRef</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C56</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C64</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXBuildFile</string>
-            <key>fileRef</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C57</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C65</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXBuildFile</string>
-            <key>fileRef</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C58</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C66</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXBuildFile</string>
-            <key>fileRef</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C59</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C67</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXBuildFile</string>
-            <key>fileRef</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5A</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C68</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXBuildFile</string>
-            <key>fileRef</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5B</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C69</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXBuildFile</string>
-            <key>fileRef</key>
-            <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5C</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6A</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXGroup</string>
-            <key>children</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6C</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6D</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6E</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6F</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C70</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C71</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C72</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C73</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C74</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C75</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C76</string>
-            </array>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6B</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXGroup</string>
-            <key>children</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4F</string>
-            </array>
-            <key>name</key>
-            <string>Products</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6C</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXGroup</string>
-            <key>children</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C50</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C51</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C52</string>
-            </array>
-            <key>name</key>
-            <string>App</string>
-            <key>path</key>
-            <string>App</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6D</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXGroup</string>
-            <key>children</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6E</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6F</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C70</string>
-            </array>
-            <key>name</key>
-            <string>Core</string>
-            <key>path</key>
-            <string>Core</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6E</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXGroup</string>
-            <key>children</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C53</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C54</string>
-            </array>
-            <key>name</key>
-            <string>Database</string>
-            <key>path</key>
-            <string>Database</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C6F</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXGroup</string>
-            <key>children</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C55</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C56</string>
-            </array>
-            <key>name</key>
-            <string>Components</string>
-            <key>path</key>
-            <string>Components</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C70</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXGroup</string>
-            <key>children</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C57</string>
-            </array>
-            <key>name</key>
-            <string>Utilities</string>
-            <key>path</key>
-            <string>Utilities</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C71</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXGroup</string>
-            <key>children</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C72</string>
-            </array>
-            <key>name</key>
-            <string>Features</string>
-            <key>path</key>
-            <string>Features</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C72</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXGroup</string>
-            <key>children</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C73</string>
-            </array>
-            <key>name</key>
-            <string>Today</string>
-            <key>path</key>
-            <string>Today</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C73</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXGroup</string>
-            <key>children</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C74</string>
-            </array>
-            <key>name</key>
-            <string>Views</string>
-            <key>path</key>
-            <string>Views</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C74</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXGroup</string>
-            <key>children</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C58</string>
-            </array>
-            <key>name</key>
-            <string>ViewModels</string>
-            <key>path</key>
-            <string>ViewModels</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C75</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXGroup</string>
-            <key>children</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5A</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5B</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5C</string>
-            </array>
-            <key>name</key>
-            <string>Resources</string>
-            <key>path</key>
-            <string>Resources</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C76</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXGroup</string>
-            <key>children</key>
-            <array/>
-            <key>name</key>
-            <string>NolaTests</string>
-            <key>sourceTree</key>
-            <string>&lt;group&gt;</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C77</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXSourcesBuildPhase</string>
-            <key>buildActionMask</key>
-            <integer>2147483647</integer>
-            <key>files</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5D</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5E</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C5F</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C60</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C61</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C62</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C63</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C64</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C65</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C66</string>
-            </array>
-            <key>runOnlyForDeploymentPostprocessing</key>
-            <integer>0</integer>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C78</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXResourcesBuildPhase</string>
-            <key>buildActionMask</key>
-            <integer>2147483647</integer>
-            <key>files</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C67</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C68</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C69</string>
-            </array>
-            <key>runOnlyForDeploymentPostprocessing</key>
-            <integer>0</integer>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C79</key>
-        <dict>
-            <key>isa</key>
-            <string>PBXFrameworksBuildPhase</string>
-            <key>buildActionMask</key>
-            <integer>2147483647</integer>
-            <key>files</key>
-            <array/>
-            <key>runOnlyForDeploymentPostprocessing</key>
-            <integer>0</integer>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C7A</key>
-        <dict>
-            <key>isa</key>
-            <string>XCBuildConfiguration</string>
-            <key>buildSettings</key>
-            <dict>
-                <key>ALWAYS_SEARCH_USER_PATHS</key>
-                <string>NO</string>
-                <key>ASSETCATALOG_COMPILER_APPICON_NAME</key>
-                <string>AppIcon</string>
-                <key>CLANG_ANALYZER_NONNULL</key>
-                <string>YES</string>
-                <key>CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION</key>
-                <string>YES_AGGRESSIVE</string>
-                <key>CLANG_CXX_LANGUAGE_STANDARD</key>
-                <string>gnu++14</string>
-                <key>CLANG_CXX_LIBRARY</key>
-                <string>libc++</string>
-                <key>CLANG_ENABLE_MODULES</key>
-                <string>YES</string>
-                <key>CLANG_ENABLE_OBJC_ARC</key>
-                <string>YES</string>
-                <key>CLANG_ENABLE_OBJC_WEAK</key>
-                <string>YES</string>
-                <key>CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING</key>
-                <string>YES</string>
-                <key>CLANG_WARN_BOOL_CONVERSION</key>
-                <string>YES</string>
-                <key>CLANG_WARN_COMMA</key>
-                <string>YES</string>
-                <key>CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS</key>
-                <string>YES</string>
-                <key>CLANG_WARN_DOCUMENTATION_COMMENTS</key>
-                <string>YES</string>
-                <key>CLANG_WARN_EMPTY_BODY</key>
-                <string>YES</string>
-                <key>CLANG_WARN_ENUM_CONVERSION</key>
-                <string>YES</string>
-                <key>CLANG_WARN_INFINITE_RECURSION</key>
-                <string>YES</string>
-                <key>CLANG_WARN_INT_CONVERSION</key>
-                <string>YES</string>
-                <key>CLANG_WARN_NON_LITERAL_NULL_CONVERSION</key>
-                <string>YES</string>
-                <key>CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF</key>
-                <string>YES</string>
-                <key>CLANG_WARN_OBJC_LITERAL_CONVERSION</key>
-                <string>YES</string>
-                <key>CLANG_WARN_OBJC_ROOT_CLASS</key>
-                <string>YES</string>
-                <key>CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER</key>
-                <string>YES</string>
-                <key>CLANG_WARN_RANGE_LOOP_ANALYSIS</key>
-                <string>YES</string>
-                <key>CLANG_WARN_STRICT_PROTOTYPES</key>
-                <string>YES</string>
-                <key>CLANG_WARN_SUSPICIOUS_MOVE</key>
-                <string>YES</string>
-                <key>CLANG_WARN_UNREACHABLE_CODE</key>
-                <string>YES</string>
-                <key>CLANG_WARN__DUPLICATE_METHOD_MATCH</key>
-                <string>YES</string>
-                <key>CODE_SIGN_STYLE</key>
-                <string>Automatic</string>
-                <key>COPY_PHASE_STRIP</key>
-                <string>NO</string>
-                <key>DEBUG_INFORMATION_FORMAT</key>
-                <string>dwarf</string>
-                <key>DEVELOPMENT_ASSETPACKS</key>
-                <string></string>
-                <key>DEVELOPMENT_TEAM</key>
-                <string></string>
-                <key>ENABLE_STRICT_OBJC_MSGSEND</key>
-                <string>YES</string>
-                <key>ENABLE_TESTABILITY</key>
-                <string>YES</string>
-                <key>GCC_C_LANGUAGE_STANDARD</key>
-                <string>gnu11</string>
-                <key>GCC_DYNAMIC_NO_PIC</key>
-                <string>NO</string>
-                <key>GCC_NO_COMMON_BLOCKS</key>
-                <string>YES</string>
-                <key>GCC_PREPROCESSOR_DEFINITIONS</key>
-                <string>$(inherited)</string>
-                <key>GCC_WARN_64_TO_32_BIT_CONVERSION</key>
-                <string>YES</string>
-                <key>GCC_WARN_ABOUT_RETURN_TYPE</key>
-                <string>YES</string>
-                <key>GCC_WARN_UNDECLARED_SELECTOR</key>
-                <string>YES</string>
-                <key>GCC_WARN_UNINITIALIZED_AUTOS</key>
-                <string>YES_AGGRESSIVE</string>
-                <key>GCC_WARN_UNUSED_FUNCTION</key>
-                <string>YES</string>
-                <key>GCC_WARN_UNUSED_VARIABLE</key>
-                <string>YES</string>
-                <key>GENERATE_INFOPLIST_FILE</key>
-                <string>NO</string>
-                <key>INFOPLIST_FILE</key>
-                <string>Nola/Info.plist</string>
-                <key>IPHONEOS_DEPLOYMENT_TARGET</key>
-                <string>15.0</string>
-                <key>LD_RUNPATH_SEARCH_PATHS</key>
-                <string>$(inherited) @executable_path/Frameworks</string>
-                <key>MARKETING_VERSION</key>
-                <string>1.0</string>
-                <key>MTL_ENABLE_DEBUG_INFO</key>
-                <string>YES</string>
-                <key>ONLY_ACTIVE_ARCH</key>
-                <string>YES</string>
-                <key>PRODUCT_BUNDLE_IDENTIFIER</key>
-                <string>com.example.Nola</string>
-                <key>PRODUCT_NAME</key>
-                <string>$(TARGET_NAME)</string>
-                <key>SDKROOT</key>
-                <string>iphoneos</string>
-                <key>SWIFT_ACTIVE_COMPILATION_CONDITIONS</key>
-                <string>DEBUG</string>
-                <key>SWIFT_VERSION</key>
-                <string>5.0</string>
-                <key>TARGETED_DEVICE_FAMILY</key>
-                <string>1,2</string>
-                <key>VERSIONING_SYSTEM</key>
-                <string></string>
-            </dict>
-            <key>name</key>
-            <string>Debug</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C7B</key>
-        <dict>
-            <key>isa</key>
-            <string>XCBuildConfiguration</string>
-            <key>buildSettings</key>
-            <dict>
-                <key>ALWAYS_SEARCH_USER_PATHS</key>
-                <string>NO</string>
-                <key>ASSETCATALOG_COMPILER_APPICON_NAME</key>
-                <string>AppIcon</string>
-                <key>CLANG_ANALYZER_NONNULL</key>
-                <string>YES</string>
-                <key>CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION</key>
-                <string>YES_AGGRESSIVE</string>
-                <key>CLANG_CXX_LANGUAGE_STANDARD</key>
-                <string>gnu++14</string>
-                <key>CLANG_CXX_LIBRARY</key>
-                <string>libc++</string>
-                <key>CLANG_ENABLE_MODULES</key>
-                <string>YES</string>
-                <key>CLANG_ENABLE_OBJC_ARC</key>
-                <string>YES</string>
-                <key>CLANG_ENABLE_OBJC_WEAK</key>
-                <string>YES</string>
-                <key>CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING</key>
-                <string>YES</string>
-                <key>CLANG_WARN_BOOL_CONVERSION</key>
-                <string>YES</string>
-                <key>CLANG_WARN_COMMA</key>
-                <string>YES</string>
-                <key>CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS</key>
-                <string>YES</string>
-                <key>CLANG_WARN_DOCUMENTATION_COMMENTS</key>
-                <string>YES</string>
-                <key>CLANG_WARN_EMPTY_BODY</key>
-                <string>YES</string>
-                <key>CLANG_WARN_ENUM_CONVERSION</key>
-                <string>YES</string>
-                <key>CLANG_WARN_INFINITE_RECURSION</key>
-                <string>YES</string>
-                <key>CLANG_WARN_INT_CONVERSION</key>
-                <string>YES</string>
-                <key>CLANG_WARN_NON_LITERAL_NULL_CONVERSION</key>
-                <string>YES</string>
-                <key>CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF</key>
-                <string>YES</string>
-                <key>CLANG_WARN_OBJC_LITERAL_CONVERSION</key>
-                <string>YES</string>
-                <key>CLANG_WARN_OBJC_ROOT_CLASS</key>
-                <string>YES</string>
-                <key>CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER</key>
-                <string>YES</string>
-                <key>CLANG_WARN_RANGE_LOOP_ANALYSIS</key>
-                <string>YES</string>
-                <key>CLANG_WARN_STRICT_PROTOTYPES</key>
-                <string>YES</string>
-                <key>CLANG_WARN_SUSPICIOUS_MOVE</key>
-                <string>YES</string>
-                <key>CLANG_WARN_UNREACHABLE_CODE</key>
-                <string>YES</string>
-                <key>CLANG_WARN__DUPLICATE_METHOD_MATCH</key>
-                <string>YES</string>
-                <key>CODE_SIGN_STYLE</key>
-                <string>Automatic</string>
-                <key>COPY_PHASE_STRIP</key>
-                <string>NO</string>
-                <key>DEBUG_INFORMATION_FORMAT</key>
-                <string>dwarf-with-symbol</string>
-                <key>DEVELOPMENT_ASSETPACKS</key>
-                <string></string>
-                <key>DEVELOPMENT_TEAM</key>
-                <string></string>
-                <key>ENABLE_NS_ASSERTIONS</key>
-                <string>NO</string>
-                <key>ENABLE_STRICT_OBJC_MSGSEND</key>
-                <string>YES</string>
-                <key>GCC_C_LANGUAGE_STANDARD</key>
-                <string>gnu11</string>
-                <key>GCC_NO_COMMON_BLOCKS</key>
-                <string>YES</string>
-                <key>GCC_PREPROCESSOR_DEFINITIONS</key>
-                <string>$(inherited)</string>
-                <key>GCC_WARN_64_TO_32_BIT_CONVERSION</key>
-                <string>YES</string>
-                <key>GCC_WARN_ABOUT_RETURN_TYPE</key>
-                <string>YES</string>
-                <key>GCC_WARN_UNDECLARED_SELECTOR</key>
-                <string>YES</string>
-                <key>GCC_WARN_UNINITIALIZED_AUTOS</key>
-                <string>YES_AGGRESSIVE</string>
-                <key>GCC_WARN_UNUSED_FUNCTION</key>
-                <string>YES</string>
-                <key>GCC_WARN_UNUSED_VARIABLE</key>
-                <string>YES</string>
-                <key>GENERATE_INFOPLIST_FILE</key>
-                <string>NO</string>
-                <key>INFOPLIST_FILE</key>
-                <string>Nola/Info.plist</string>
-                <key>IPHONEOS_DEPLOYMENT_TARGET</key>
-                <string>15.0</string>
-                <key>LD_RUNPATH_SEARCH_PATHS</key>
-                <string>$(inherited) @executable_path/Frameworks</string>
-                <key>MARKETING_VERSION</key>
-                <string>1.0</string>
-                <key>MTL_ENABLE_DEBUG_INFO</key>
-                <string>NO</string>
-                <key>PRODUCT_BUNDLE_IDENTIFIER</key>
-                <string>com.example.Nola</string>
-                <key>PRODUCT_NAME</key>
-                <string>$(TARGET_NAME)</string>
-                <key>SDKROOT</key>
-                <string>iphoneos</string>
-                <key>SWIFT_VERSION</key>
-                <string>5.0</string>
-                <key>TARGETED_DEVICE_FAMILY</key>
-                <string>1,2</string>
-                <key>VALIDATE_PRODUCT</key>
-                <string>YES</string>
-                <key>VERSIONING_SYSTEM</key>
-                <string></string>
-            </dict>
-            <key>name</key>
-            <string>Release</string>
-        </dict>
-        <key>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C7C</key>
-        <dict>
-            <key>isa</key>
-            <string>XCConfigurationList</string>
-            <key>buildConfigurations</key>
-            <array>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C7A</string>
-                <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C7B</string>
-            </array>
-            <key>defaultConfigurationIsVisible</key>
-            <integer>0</integer>
-            <key>defaultConfigurationName</key>
-            <string>Debug</string>
-        </dict>
-    </dict>
-    <key>rootObject</key>
-    <string>8A0B1C2D3E4F5A6B7C8D9E0F1A2B3C4D</string>
-</dict>
-</plist>
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 52;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		AA0000000000000000000030 /* NolaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000020 /* NolaApp.swift */; };
+		AA0000000000000000000031 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000021 /* AppState.swift */; };
+		AA0000000000000000000032 /* AppNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000022 /* AppNavigation.swift */; };
+		AA0000000000000000000033 /* PersistenceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000023 /* PersistenceController.swift */; };
+		AA0000000000000000000034 /* JournalEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000024 /* JournalEntry.swift */; };
+		AA0000000000000000000035 /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000025 /* AppColors.swift */; };
+		AA0000000000000000000036 /* AppTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000026 /* AppTypography.swift */; };
+		AA0000000000000000000037 /* DateHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000027 /* DateHelpers.swift */; };
+		AA0000000000000000000038 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000028 /* TodayView.swift */; };
+		AA0000000000000000000039 /* TodayViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000029 /* TodayViewModel.swift */; };
+		AA000000000000000000003A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002A /* Assets.xcassets */; };
+		AA000000000000000000003B /* Nola.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002B /* Nola.xcdatamodeld */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		AA0000000000000000000003 /* Nola.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Nola.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA0000000000000000000020 /* NolaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NolaApp.swift; sourceTree = "<group>"; };
+		AA0000000000000000000021 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		AA0000000000000000000022 /* AppNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppNavigation.swift; sourceTree = "<group>"; };
+		AA0000000000000000000023 /* PersistenceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceController.swift; sourceTree = "<group>"; };
+		AA0000000000000000000024 /* JournalEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalEntry.swift; sourceTree = "<group>"; };
+		AA0000000000000000000025 /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
+		AA0000000000000000000026 /* AppTypography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTypography.swift; sourceTree = "<group>"; };
+		AA0000000000000000000027 /* DateHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateHelpers.swift; sourceTree = "<group>"; };
+		AA0000000000000000000028 /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
+		AA0000000000000000000029 /* TodayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayViewModel.swift; sourceTree = "<group>"; };
+		AA000000000000000000002A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA000000000000000000002B /* Nola.xcdatamodeld */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodeld; path = Nola.xcdatamodeld; sourceTree = "<group>"; };
+		AA000000000000000000002C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AA0000000000000000000042 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		AA0000000000000000000005 /* main */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000006 /* Nola */,
+				AA0000000000000000000004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000003 /* Nola.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000006 /* Nola */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000007 /* App */,
+				AA0000000000000000000008 /* Core */,
+				AA000000000000000000000C /* Features */,
+				AA0000000000000000000010 /* Resources */,
+				AA000000000000000000002B /* Nola.xcdatamodeld */,
+				AA000000000000000000002C /* Info.plist */,
+			);
+			path = Nola;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000007 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000020 /* NolaApp.swift */,
+				AA0000000000000000000021 /* AppState.swift */,
+				AA0000000000000000000022 /* AppNavigation.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000008 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000009 /* Components */,
+				AA000000000000000000000A /* Database */,
+				AA000000000000000000000B /* Utilities */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000009 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000025 /* AppColors.swift */,
+				AA0000000000000000000026 /* AppTypography.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000000A /* Database */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000023 /* PersistenceController.swift */,
+				AA0000000000000000000024 /* JournalEntry.swift */,
+			);
+			path = Database;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000000B /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000027 /* DateHelpers.swift */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000000C /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				AA000000000000000000000D /* Today */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000000D /* Today */ = {
+			isa = PBXGroup;
+			children = (
+				AA000000000000000000000E /* ViewModels */,
+				AA000000000000000000000F /* Views */,
+			);
+			path = Today;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000000E /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000029 /* TodayViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		AA000000000000000000000F /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				AA0000000000000000000028 /* TodayView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		AA0000000000000000000010 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				AA000000000000000000002A /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AA0000000000000000000002 /* Nola */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA0000000000000000000057 /* Build configuration list for PBXNativeTarget "Nola" */;
+			buildPhases = (
+				AA0000000000000000000040 /* Sources */,
+				AA0000000000000000000041 /* Resources */,
+				AA0000000000000000000042 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Nola;
+			productName = Nola;
+			productReference = AA0000000000000000000003 /* Nola.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		AA0000000000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1300;
+				LastUpgradeCheck = 1300;
+				TargetAttributes = {
+					AA0000000000000000000002 = {
+						CreatedOnToolsVersion = 13.0;
+					};
+				};
+			};
+			buildConfigurationList = AA0000000000000000000056 /* Build configuration list for PBXProject "Nola" */;
+			compatibilityVersion = "Xcode 13.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = AA0000000000000000000005;
+			productRefGroup = AA0000000000000000000004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AA0000000000000000000002 /* Nola */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		AA0000000000000000000041 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000000000000000000003A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AA0000000000000000000040 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA0000000000000000000030 /* NolaApp.swift in Sources */,
+				AA0000000000000000000031 /* AppState.swift in Sources */,
+				AA0000000000000000000032 /* AppNavigation.swift in Sources */,
+				AA0000000000000000000033 /* PersistenceController.swift in Sources */,
+				AA0000000000000000000034 /* JournalEntry.swift in Sources */,
+				AA0000000000000000000035 /* AppColors.swift in Sources */,
+				AA0000000000000000000036 /* AppTypography.swift in Sources */,
+				AA0000000000000000000037 /* DateHelpers.swift in Sources */,
+				AA0000000000000000000038 /* TodayView.swift in Sources */,
+				AA0000000000000000000039 /* TodayViewModel.swift in Sources */,
+				AA000000000000000000003B /* Nola.xcdatamodeld in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		AA0000000000000000000050 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		AA0000000000000000000051 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		AA0000000000000000000052 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Nola/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.Nola;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		AA0000000000000000000053 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "Nola/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.Nola;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AA0000000000000000000056 /* Build configuration list for PBXProject "Nola" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000000000000000000050 /* Debug */,
+				AA0000000000000000000051 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		AA0000000000000000000057 /* Build configuration list for PBXNativeTarget "Nola" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA0000000000000000000052 /* Debug */,
+				AA0000000000000000000053 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = AA0000000000000000000001 /* Project object */;
+}
