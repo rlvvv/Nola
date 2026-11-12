@@ -1,0 +1,48 @@
+name: Build Nola (iOS)
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Toolchain info
+        run: |
+          xcodebuild -version
+          xcodebuild -list -project Nola.xcodeproj
+
+      # Catches every Swift/compile error. Unsigned because the CI Mac has no
+      # signing identity; simulator/device builds without signing are fine here.
+      - name: Build Release (unsigned, generic iOS device)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project Nola.xcodeproj \
+            -target Nola \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      # Package the built .app into an unsigned .ipa for SideStore.
+      # SideStore signs it on-device with your Apple ID (personal team).
+      - name: Package unsigned .ipa
+        run: |
+          mkdir -p Payload
+          cp -R "build/Build/Products/Release-iphoneos/Nola.app" Payload/
+          zip -qry Nola-unsigned.ipa Payload
+          ls -la
+
+      - name: Upload .ipa artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nola-unsigned-ipa
+          path: Nola-unsigned.ipa
