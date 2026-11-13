@@ -7,6 +7,12 @@ public class JournalEntry: NSManagedObject {
         return NSFetchRequest<JournalEntry>(entityName: "JournalEntry")
     }
 
+    @nonobjc public class func sortedFetchRequest() -> NSFetchRequest<JournalEntry> {
+        let request = fetchRequest()
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \JournalEntry.createdAt, ascending: false)]
+        return request
+    }
+
     @NSManaged public var id: UUID?
     @NSManaged public var title: String?
     @NSManaged public var content: String?
