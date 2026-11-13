@@ -205,7 +205,7 @@ private struct TodayScreen: View {
                     .background(Color.white.opacity(0.78))
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             } else {
-                ForEach(Array(moments.prefix(5)), id: \\.objectID) { moment in
+                ForEach(Array(moments.prefix(5)), id: \.objectID) { moment in
                     MomentCard(moment: moment) { requestDelete(moment) }
                 }
             }
