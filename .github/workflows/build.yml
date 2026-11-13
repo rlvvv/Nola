@@ -32,6 +32,28 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             build
 
+      - name: Verify bundled Core Data model
+        run: |
+          MODEL_PATH="build/Build/Products/Release-iphoneos/Nola.app/Nola.momd/Nola.mom"
+          test -f "$MODEL_PATH"
+          swift -e '
+            import CoreData
+            import Foundation
+            let url = URL(fileURLWithPath: CommandLine.arguments[1])
+            guard let model = NSManagedObjectModel(contentsOf: url) else {
+                fatalError("Could not load the compiled Nola Core Data model")
+            }
+            guard let entity = model.entitiesByName["JournalEntry"] else {
+                fatalError("The compiled model has no JournalEntry entity")
+            }
+            let expected = Set(["id", "title", "content", "createdAt", "updatedAt", "entryType"])
+            let actual = Set(entity.propertiesByName.keys)
+            guard expected.isSubset(of: actual) else {
+                fatalError("JournalEntry is missing expected attributes: \\(expected.subtracting(actual))")
+            }
+            print("Verified JournalEntry entity and attributes in Nola.mom")
+          ' "$MODEL_PATH"
+
       # Package the built .app into an unsigned .ipa for SideStore.
       # SideStore signs it on-device with your Apple ID (personal team).
       - name: Package unsigned .ipa
