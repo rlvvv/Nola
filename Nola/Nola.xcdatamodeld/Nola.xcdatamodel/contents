@@ -1,81 +1,14 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>elements</key>
-    <dict>
-        <key>JournalEntry</key>
-        <dict>
-            <key>attributes</key>
-            <dict>
-                <key>id</key>
-                <dict>
-                    <key>attributeType</key>
-                    <string>UUID</string>
-                    <key>defaultValue</key>
-                    <string></string>
-                    <key>allowsNull</key>
-                    <false/>
-                </dict>
-                <key>title</key>
-                <dict>
-                    <key>attributeType</key>
-                    <string>String</string>
-                    <key>defaultValue</key>
-                    <string></string>
-                    <key>allowsNull</key>
-                    <true/>
-                </dict>
-                <key>content</key>
-                <dict>
-                    <key>attributeType</key>
-                    <string>String</string>
-                    <key>defaultValue</key>
-                    <string></string>
-                    <key>allowsNull</key>
-                    <true/>
-                </dict>
-                <key>createdAt</key>
-                <dict>
-                    <key>attributeType</key>
-                    <string>Date</string>
-                    <key>defaultValue</key>
-                    <string></string>
-                    <key>allowsNull</key>
-                    <true/>
-                </dict>
-                <key>updatedAt</key>
-                <dict>
-                    <key>attributeType</key>
-                    <string>Date</string>
-                    <key>defaultValue</key>
-                    <string></string>
-                    <key>allowsNull</key>
-                    <true/>
-                </dict>
-                <key>entryType</key>
-                <dict>
-                    <key>attributeType</key>
-                    <string>String</string>
-                    <key>defaultValue</key>
-                    <string>daily</string>
-                    <key>allowsNull</key>
-                    <true/>
-                </dict>
-            </dict>
-            <key>name</key>
-            <string>JournalEntry</string>
-            <key>userInfo</key>
-            <dict/>
-            <key>version</key>
-            <integer>1</integer>
-        </dict>
-    </dict>
-    <key>name</key>
-    <string>Nola</string>
-    <key>rootElement</key>
-    <string>JournalEntry</string>
-    <key>version</key>
-    <integer>1</integer>
-</dict>
-</plist>
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="26000" systemVersion="25G332" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="JournalEntry" representedClassName="JournalEntry" syncable="YES" codeGenerationType="manual/none">
+        <attribute name="id" optional="NO" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="title" optional="YES" attributeType="String"/>
+        <attribute name="content" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="entryType" optional="YES" attributeType="String" defaultValueString="daily"/>
+    </entity>
+    <elements>
+        <element name="JournalEntry" positionX="-63" positionY="-18" width="128" height="134"/>
+    </elements>
+</model>
