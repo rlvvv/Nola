@@ -20,6 +20,7 @@
 		AA000000000000000000003A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002A /* Assets.xcassets */; };
 		AA000000000000000000003B /* Nola.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002B /* Nola.xcdatamodeld */; };
 		AA000000000000000000003C /* MoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002D /* MoodEntry.swift */; };
+		AA000000000000000000003D /* MemorableMoment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002E /* MemorableMoment.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -38,6 +39,7 @@
 		AA000000000000000000002B /* Nola.xcdatamodeld */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodeld; path = Nola.xcdatamodeld; sourceTree = "<group>"; };
 		AA000000000000000000002C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA000000000000000000002D /* MoodEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoodEntry.swift; sourceTree = "<group>"; };
+		AA000000000000000000002E /* MemorableMoment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemorableMoment.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,6 +117,7 @@
 				AA0000000000000000000023 /* PersistenceController.swift */,
 				AA0000000000000000000024 /* JournalEntry.swift */,
 				AA000000000000000000002D /* MoodEntry.swift */,
+				AA000000000000000000002E /* MemorableMoment.swift */,
 			);
 			path = Database;
 			sourceTree = "<group>";
@@ -249,6 +252,7 @@
 				AA0000000000000000000039 /* TodayViewModel.swift in Sources */,
 				AA000000000000000000003B /* Nola.xcdatamodeld in Sources */,
 				AA000000000000000000003C /* MoodEntry.swift in Sources */,
+				AA000000000000000000003D /* MemorableMoment.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -440,3 +444,4 @@
 	};
 	rootObject = AA0000000000000000000001 /* Project object */;
 }
+
