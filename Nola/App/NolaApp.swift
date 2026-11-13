@@ -68,9 +68,17 @@ private struct TodayScreen: View {
     @Binding var showingEditor: Bool
     @FetchRequest(fetchRequest: JournalEntry.sortedFetchRequest())
     private var entries: FetchedResults<JournalEntry>
+    @FetchRequest(fetchRequest: MoodEntry.sortedFetchRequest())
+    private var moodEntries: FetchedResults<MoodEntry>
+    @State private var showingMoodCheckIn = false
+    @State private var moodEntryToEdit: MoodEntry?
 
     private var todayEntries: [JournalEntry] {
         entries.filter { Calendar.current.isDateInToday($0.safeCreatedAt) }
+    }
+
+    private var todayMood: MoodEntry? {
+        moodEntries.first { Calendar.current.isDateInToday($0.safeDate) }
     }
 
     var body: some View {
@@ -106,6 +114,8 @@ private struct TodayScreen: View {
                     }
                     .buttonStyle(.plain)
 
+                    moodCheckInCard
+
                     VStack(alignment: .leading, spacing: 13) {
                         HStack {
                             Text("Today").font(.system(size: 22, weight: .semibold, design: .serif))
@@ -133,13 +143,61 @@ private struct TodayScreen: View {
                             }
                         }
                     }
+
+                    if !moodEntries.isEmpty {
+                        recentMoodsSection
+                    }
                 }
                 .padding(22)
             }
             .background(Color(red: 0.97, green: 0.96, blue: 0.94).ignoresSafeArea())
             .navigationBarHidden(true)
+            .sheet(isPresented: $showingMoodCheckIn) {
+                MoodCheckInView(entry: moodEntryToEdit)
+            }
         }
         .navigationViewStyle(.stack)
+    }
+
+    private var moodCheckInCard: some View {
+        Button {
+            moodEntryToEdit = todayMood
+            showingMoodCheckIn = true
+        } label: {
+            HStack(spacing: 14) {
+                Text(todayMood.map { MoodChoice(rawValue: $0.safeMood)?.emoji ?? "🌿" } ?? "🌿")
+                    .font(.system(size: 28))
+                    .frame(width: 48, height: 48)
+                    .background(Color(red: 0.93, green: 0.91, blue: 0.86))
+                    .clipShape(Circle())
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(todayMood.map { "Feeling \(MoodChoice(rawValue: $0.safeMood)?.label.lowercased() ?? "okay")" } ?? "How are you feeling?")
+                        .font(.system(size: 16, weight: .semibold, design: .serif))
+                        .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                    Text(todayMood == nil ? "Take a small moment to check in" : "Tap to update today’s check-in")
+                        .font(.system(size: 13)).foregroundColor(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white.opacity(0.78))
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var recentMoodsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Recent check-ins")
+                .font(.system(size: 22, weight: .semibold, design: .serif))
+                .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+            ForEach(Array(moodEntries.prefix(5)), id: \.objectID) { entry in
+                MoodHistoryRow(entry: entry)
+            }
+        }
     }
 
     private static let dayFormatter: DateFormatter = {
@@ -147,6 +205,180 @@ private struct TodayScreen: View {
         formatter.dateFormat = "EEEE, MMMM d"
         return formatter
     }()
+}
+
+private enum MoodChoice: String, CaseIterable, Identifiable {
+    case rough
+    case low
+    case okay
+    case good
+    case great
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .rough: return "Rough"
+        case .low: return "Low"
+        case .okay: return "Okay"
+        case .good: return "Good"
+        case .great: return "Great"
+        }
+    }
+
+    var emoji: String {
+        switch self {
+        case .rough: return "😣"
+        case .low: return "😕"
+        case .okay: return "😐"
+        case .good: return "🙂"
+        case .great: return "😄"
+        }
+    }
+}
+
+private struct MoodHistoryRow: View {
+    let entry: MoodEntry
+
+    private var choice: MoodChoice {
+        MoodChoice(rawValue: entry.safeMood) ?? .okay
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(choice.emoji).font(.system(size: 23))
+            VStack(alignment: .leading, spacing: 3) {
+                HStack {
+                    Text(choice.label)
+                        .font(.system(size: 15, weight: .medium))
+                    Spacer()
+                    Text(entry.safeDate, formatter: Self.dateFormatter)
+                        .font(.system(size: 12)).foregroundColor(.secondary)
+                }
+                if !entry.safeNote.isEmpty {
+                    Text(entry.safeNote)
+                        .font(.system(size: 13)).foregroundColor(.secondary)
+                        .lineLimit(2)
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.white.opacity(0.78))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
+}
+
+private struct MoodCheckInView: View {
+    @Environment(\.managedObjectContext) private var context
+    @Environment(\.presentationMode) private var presentationMode
+    @State private var selectedMood: String
+    @State private var note: String
+    @State private var showingSaveError = false
+    @State private var saveErrorMessage = ""
+    private let entry: MoodEntry?
+
+    init(entry: MoodEntry?) {
+        self.entry = entry
+        _selectedMood = State(initialValue: entry?.safeMood ?? "")
+        _note = State(initialValue: entry?.safeNote ?? "")
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack(alignment: .leading, spacing: 22) {
+                Text("How are you feeling?")
+                    .font(.system(size: 28, weight: .semibold, design: .serif))
+                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                Text("There’s no right answer. Just notice where you are.")
+                    .font(.system(size: 15)).foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 7) {
+                    ForEach(MoodChoice.allCases) { mood in
+                        Button { selectedMood = mood.rawValue } label: {
+                            VStack(spacing: 7) {
+                                Text(mood.emoji).font(.system(size: 27))
+                                Text(mood.label)
+                                    .font(.system(size: 11, weight: .medium))
+                                    .lineLimit(1).minimumScaleFactor(0.8)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 82)
+                            .padding(.vertical, 5)
+                            .background(selectedMood == mood.rawValue ? Color(red: 0.91, green: 0.89, blue: 0.97) : Color.white)
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(selectedMood == mood.rawValue ? Color(red: 0.42, green: 0.38, blue: 0.72) : Color.clear, lineWidth: 1.5))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Anything behind that feeling?")
+                        .font(.system(size: 15, weight: .medium))
+                    TextEditor(text: $note)
+                        .frame(minHeight: 110)
+                        .padding(8)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(alignment: .topLeading) {
+                            if note.isEmpty {
+                                Text("Optional note")
+                                    .font(.system(size: 15)).foregroundColor(Color.gray.opacity(0.65))
+                                    .padding(.leading, 13).padding(.top, 16)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(22)
+            .background(Color(red: 0.97, green: 0.96, blue: 0.94).ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { presentationMode.wrappedValue.dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") { save() }
+                        .font(.system(size: 17, weight: .semibold))
+                        .disabled(selectedMood.isEmpty)
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+        .alert("Couldn’t save check-in", isPresented: $showingSaveError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(saveErrorMessage)
+        }
+    }
+
+    private func save() {
+        let target = entry ?? MoodEntry(context: context)
+        if entry == nil {
+            target.id = UUID()
+            target.date = Date()
+        }
+        target.mood = selectedMood
+        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        target.note = trimmedNote.isEmpty ? nil : trimmedNote
+        do {
+            try PersistenceController.shared.save()
+            presentationMode.wrappedValue.dismiss()
+        } catch {
+            context.rollback()
+            saveErrorMessage = error.localizedDescription
+            showingSaveError = true
+        }
+    }
 }
 
 private struct JournalScreen: View {
