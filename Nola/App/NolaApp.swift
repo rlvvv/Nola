@@ -72,6 +72,13 @@ private struct TodayScreen: View {
     private var moodEntries: FetchedResults<MoodEntry>
     @State private var showingMoodCheckIn = false
     @State private var moodEntryToEdit: MoodEntry?
+    @FetchRequest(fetchRequest: MemorableMoment.sortedFetchRequest())
+    private var moments: FetchedResults<MemorableMoment>
+    @State private var showingMomentEditor = false
+    @State private var momentToDelete: MemorableMoment?
+    @State private var showingMomentDeleteConfirmation = false
+    @State private var showingMomentDeleteError = false
+    @State private var momentDeleteError = ""
 
     private var todayEntries: [JournalEntry] {
         entries.filter { Calendar.current.isDateInToday($0.safeCreatedAt) }
@@ -116,6 +123,8 @@ private struct TodayScreen: View {
 
                     moodCheckInCard
 
+                    memorableMomentsSection
+
                     VStack(alignment: .leading, spacing: 13) {
                         HStack {
                             Text("Today").font(.system(size: 22, weight: .semibold, design: .serif))
@@ -155,8 +164,72 @@ private struct TodayScreen: View {
             .sheet(isPresented: $showingMoodCheckIn) {
                 MoodCheckInView(entry: moodEntryToEdit)
             }
+            .sheet(isPresented: $showingMomentEditor) {
+                MomentEditorView()
+            }
+            .confirmationDialog("Delete this moment?", isPresented: $showingMomentDeleteConfirmation, titleVisibility: .visible) {
+                Button("Delete Moment", role: .destructive) { deleteSelectedMoment() }
+                Button("Cancel", role: .cancel) { momentToDelete = nil }
+            } message: {
+                Text("This moment will be permanently removed from this device.")
+            }
+            .alert("Couldn’t delete moment", isPresented: $showingMomentDeleteError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(momentDeleteError)
+            }
         }
         .navigationViewStyle(.stack)
+    }
+
+    private var memorableMomentsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("Moments to remember")
+                    .font(.system(size: 22, weight: .semibold, design: .serif))
+                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                Spacer()
+                Button { showingMomentEditor = true } label: {
+                    Label("Add", systemImage: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundColor(Color(red: 0.42, green: 0.38, blue: 0.72))
+            }
+
+            if moments.isEmpty {
+                Text("Save a small win, a lovely detail, or anything you want to remember.")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(Color.white.opacity(0.78))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            } else {
+                ForEach(Array(moments.prefix(5)), id: \\.objectID) { moment in
+                    MomentCard(moment: moment) { requestDelete(moment) }
+                }
+            }
+        }
+    }
+
+    private func requestDelete(_ moment: MemorableMoment) {
+        momentToDelete = moment
+        showingMomentDeleteConfirmation = true
+    }
+
+    private func deleteSelectedMoment() {
+        guard let moment = momentToDelete else { return }
+        let context = moment.managedObjectContext ?? PersistenceController.shared.container.viewContext
+        context.delete(moment)
+        do {
+            try PersistenceController.shared.save()
+            momentToDelete = nil
+        } catch {
+            context.rollback()
+            momentDeleteError = error.localizedDescription
+            showingMomentDeleteError = true
+            momentToDelete = nil
+        }
     }
 
     private var moodCheckInCard: some View {
@@ -205,6 +278,129 @@ private struct TodayScreen: View {
         formatter.dateFormat = "EEEE, MMMM d"
         return formatter
     }()
+}
+
+private struct MomentCard: View {
+    let moment: MemorableMoment
+    let onDelete: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "sparkle")
+                .foregroundColor(Color(red: 0.42, green: 0.38, blue: 0.72))
+                .frame(width: 38, height: 38)
+                .background(Color(red: 0.93, green: 0.91, blue: 0.97))
+                .clipShape(Circle())
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(moment.safeTitle.isEmpty ? "A moment to remember" : moment.safeTitle)
+                        .font(.system(size: 16, weight: .semibold, design: .serif))
+                        .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                        .lineLimit(2)
+                    Spacer(minLength: 4)
+                    Text(moment.safeDate, formatter: Self.dateFormatter)
+                        .font(.system(size: 11)).foregroundColor(.secondary)
+                }
+                Text(moment.safeContent)
+                    .font(.system(size: 14)).foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Delete", role: .destructive, action: onDelete)
+                    .font(.system(size: 12, weight: .medium))
+                    .padding(.top, 2)
+            }
+        }
+        .padding(15)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.82))
+        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+    }
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
+}
+
+private struct MomentEditorView: View {
+    @Environment(\.managedObjectContext) private var context
+    @Environment(\.presentationMode) private var presentationMode
+    @State private var title = ""
+    @State private var content = ""
+    @State private var showingSaveError = false
+    @State private var saveError = ""
+
+    private var canSave: Bool {
+        !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    var body: some View {
+        NavigationView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Keep a little piece of today.")
+                    .font(.system(size: 25, weight: .semibold, design: .serif))
+                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                Text("A small win, a kind moment, something funny, or anything you’d like to remember.")
+                    .font(.system(size: 15)).foregroundColor(.secondary)
+                TextField("Give this moment a title", text: $title)
+                    .font(.system(size: 17, weight: .medium))
+                    .padding(14)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                TextEditor(text: $content)
+                    .font(.system(size: 16))
+                    .frame(minHeight: 150)
+                    .padding(8)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(alignment: .topLeading) {
+                        if content.isEmpty {
+                            Text("What happened?")
+                                .font(.system(size: 15)).foregroundColor(Color.gray.opacity(0.65))
+                                .padding(.leading, 13).padding(.top, 16)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                Spacer(minLength: 0)
+            }
+            .padding(22)
+            .background(Color(red: 0.97, green: 0.96, blue: 0.94).ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Cancel") { presentationMode.wrappedValue.dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") { save() }
+                        .font(.system(size: 17, weight: .semibold))
+                        .disabled(!canSave)
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+        .alert("Couldn’t save moment", isPresented: $showingSaveError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(saveError)
+        }
+    }
+
+    private func save() {
+        let moment = MemorableMoment(context: context)
+        moment.id = UUID()
+        moment.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        moment.content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        moment.date = Date()
+        do {
+            try PersistenceController.shared.save()
+            presentationMode.wrappedValue.dismiss()
+        } catch {
+            context.rollback()
+            saveError = error.localizedDescription
+            showingSaveError = true
+        }
+    }
 }
 
 private enum MoodChoice: String, CaseIterable, Identifiable {
@@ -588,3 +784,4 @@ private struct EntryEditor: View {
         }
     }
 }
+
