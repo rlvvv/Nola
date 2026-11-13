@@ -8,8 +8,8 @@ struct NolaApp: App {
     @StateObject private var persistence = PersistenceController.shared
 
     init() {
-        // Nola uses a light palette; clear UIKit-backed editor surfaces so
-        // they display the rounded SwiftUI field backgrounds beneath them.
+        // Clear UIKit-backed editor surfaces so
+        // they display the rounded SwiftUI field backgrounds in either theme.
         UITextView.appearance().backgroundColor = .clear
     }
 
@@ -25,7 +25,6 @@ struct NolaApp: App {
                     ProgressView("Opening your journal…")
                 }
             }
-            .preferredColorScheme(.light)
         }
     }
 }
@@ -52,129 +51,109 @@ private struct PersistenceErrorView: View {
 }
 
 private struct RootView: View {
-    @Environment(\.managedObjectContext) private var context
     @State private var selectedTab = 0
-    @State private var showingEditor = false
+    @AppStorage("nola.theme") private var theme = "light"
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            TodayScreen(showingEditor: $showingEditor)
+            TodayScreen()
                 .tabItem { Label("Today", systemImage: "sun.max") }
                 .tag(0)
             JournalScreen()
                 .tabItem { Label("Journal", systemImage: "book.closed") }
                 .tag(1)
+            SettingsScreen()
+                .tabItem { Label("Settings", systemImage: "gearshape") }
+                .tag(2)
         }
-        .tint(Color(red: 0.42, green: 0.38, blue: 0.72))
-        .sheet(isPresented: $showingEditor) {
-            EntryEditor(entry: nil)
-                .environment(\.managedObjectContext, context)
+        .tint(NolaTheme.accent)
+        .preferredColorScheme(theme == "dark" ? .dark : .light)
+    }
+}
+
+private struct SettingsScreen: View {
+    @AppStorage("nola.theme") private var theme = "light"
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Appearance")) {
+                    Picker("Theme", selection: $theme) {
+                        Text("White").tag("light")
+                        Text("Black").tag("dark")
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+                }
+                Section {
+                    Text("Your journal is stored on this device. Use Journal → ⋯ to export or import a backup.")
+                        .font(.system(size: 14))
+                        .foregroundColor(NolaTheme.secondaryText)
+                }
+            }
+            .background(NolaTheme.background)
+            .navigationTitle("Settings")
         }
+        .navigationViewStyle(.stack)
     }
 }
 
 private struct TodayScreen: View {
-    @Binding var showingEditor: Bool
     @FetchRequest(fetchRequest: JournalEntry.sortedFetchRequest())
     private var entries: FetchedResults<JournalEntry>
     @FetchRequest(fetchRequest: MoodEntry.sortedFetchRequest())
     private var moodEntries: FetchedResults<MoodEntry>
-    @State private var showingMoodCheckIn = false
-    @State private var moodEntryToEdit: MoodEntry?
     @FetchRequest(fetchRequest: MemorableMoment.sortedFetchRequest())
     private var moments: FetchedResults<MemorableMoment>
+    @State private var selectedDate = Calendar.current.startOfDay(for: Date())
+    @State private var moodSheet: MoodCheckInSheet?
+    @State private var showingEntryEditor = false
     @State private var showingMomentEditor = false
     @State private var momentToDelete: MemorableMoment?
     @State private var showingMomentDeleteConfirmation = false
     @State private var showingMomentDeleteError = false
     @State private var momentDeleteError = ""
 
-    private var todayEntries: [JournalEntry] {
-        entries.filter { Calendar.current.isDateInToday($0.safeCreatedAt) }
+    private var selectedDayEntries: [JournalEntry] {
+        entries.filter { Calendar.current.isDate($0.safeCreatedAt, inSameDayAs: selectedDate) }
     }
 
-    private var todayMood: MoodEntry? {
-        moodEntries.first { Calendar.current.isDateInToday($0.safeDate) }
+    private var selectedDayMood: MoodEntry? {
+        moodEntries.first { Calendar.current.isDate($0.safeDate, inSameDayAs: selectedDate) }
+    }
+
+    private var selectedDayMoments: [MemorableMoment] {
+        moments.filter { Calendar.current.isDate($0.safeDate, inSameDayAs: selectedDate) }
+    }
+
+    private var isShowingToday: Bool {
+        Calendar.current.isDateInToday(selectedDate)
     }
 
     var body: some View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(Date(), formatter: Self.dayFormatter)
-                            .font(.system(size: 15, weight: .medium))
-                            .foregroundColor(.secondary)
-                        Text("Make room\nfor your thoughts.")
-                            .font(.system(size: 34, weight: .semibold, design: .serif))
-                            .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
-                    }
-                    Button { showingEditor = true } label: {
-                        HStack(spacing: 14) {
-                            Image(systemName: "square.and.pencil")
-                                .font(.system(size: 19, weight: .semibold))
-                                .frame(width: 46, height: 46)
-                                .background(Color.white.opacity(0.18))
-                                .clipShape(Circle())
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text("Write an entry").font(.system(size: 17, weight: .semibold))
-                                Text("Start wherever you are").font(.system(size: 13)).opacity(0.82)
-                            }
-                            Spacer()
-                            Image(systemName: "arrow.up.right").font(.system(size: 14, weight: .semibold))
-                        }
-                        .foregroundColor(.white)
-                        .padding(18)
-                        .background(Color(red: 0.42, green: 0.38, blue: 0.72))
-                        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-
-                    moodCheckInCard
-
+                    Text(selectedDate, formatter: Self.dayFormatter)
+                        .font(.system(size: 34, weight: .semibold, design: .serif))
+                        .foregroundColor(NolaTheme.text)
+                    dateCarousel
+                    moodSection
+                    journalSection
                     memorableMomentsSection
-
-                    VStack(alignment: .leading, spacing: 13) {
-                        HStack {
-                            Text("Today").font(.system(size: 22, weight: .semibold, design: .serif))
-                            Spacer()
-                            Text("\(todayEntries.count) \(todayEntries.count == 1 ? "entry" : "entries")")
-                                .font(.system(size: 13)).foregroundColor(.secondary)
-                        }
-                        if todayEntries.isEmpty {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("A page with possibility.")
-                                    .font(.system(size: 16, weight: .medium))
-                                Text("Your notes from today will find a home here.")
-                                    .font(.system(size: 14)).foregroundColor(.secondary)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(18)
-                            .background(Color.white.opacity(0.75))
-                            .clipShape(RoundedRectangle(cornerRadius: 18))
-                        } else {
-                            ForEach(todayEntries, id: \.objectID) { entry in
-                                NavigationLink(destination: EntryEditor(entry: entry)) {
-                                    EntryCard(entry: entry)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-
-                    if !moodEntries.isEmpty {
-                        recentMoodsSection
-                    }
                 }
                 .padding(22)
             }
-            .background(Color(red: 0.97, green: 0.96, blue: 0.94).ignoresSafeArea())
+            .background(NolaTheme.background.ignoresSafeArea())
             .navigationBarHidden(true)
-            .sheet(isPresented: $showingMoodCheckIn) {
-                MoodCheckInView(entry: moodEntryToEdit)
+            .sheet(item: $moodSheet) { sheet in
+                MoodCheckInView(entry: sheet.entry, date: sheet.date)
+                    .id(sheet.id)
             }
             .sheet(isPresented: $showingMomentEditor) {
-                MomentEditorView()
+                MomentEditorView(date: selectedDate)
+            }
+            .sheet(isPresented: $showingEntryEditor) {
+                EntryEditor(entry: nil, defaultDate: selectedDate)
             }
             .confirmationDialog("Delete this moment?", isPresented: $showingMomentDeleteConfirmation, titleVisibility: .visible) {
                 Button("Delete Moment", role: .destructive) { deleteSelectedMoment() }
@@ -191,30 +170,130 @@ private struct TodayScreen: View {
         .navigationViewStyle(.stack)
     }
 
+    private var dateCarousel: some View {
+        let dates = datesInSelectedWeek
+        return HStack(spacing: 5) {
+            Button(action: { moveSelectedWeek(by: -1) }) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 28, height: 58)
+            }
+            .accessibilityLabel("Previous week")
+
+            ForEach(dates, id: \.self) { date in
+                let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+                let isFuture = date > Calendar.current.startOfDay(for: Date())
+                Button { selectedDate = date } label: {
+                    VStack(spacing: 7) {
+                        Text(date, formatter: Self.weekdayFormatter)
+                            .font(.system(size: 10, weight: .medium))
+                        Text(date, formatter: Self.dayNumberFormatter)
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .foregroundColor(isSelected ? Color.white : NolaTheme.text)
+                    .frame(maxWidth: .infinity, minHeight: 56)
+                    .background(isSelected ? NolaTheme.accentStrong : NolaTheme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(isFuture)
+                .opacity(isFuture ? 0.42 : 1)
+                .accessibilityLabel(date.formatted(date: .complete, time: .omitted))
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+            }
+
+            Button(action: { moveSelectedWeek(by: 1) }) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(width: 28, height: 58)
+            }
+            .accessibilityLabel("Next week")
+            .disabled(weekStart(for: selectedDate) >= weekStart(for: Date()))
+            .opacity(weekStart(for: selectedDate) >= weekStart(for: Date()) ? 0.35 : 1)
+        }
+        .foregroundColor(NolaTheme.accent)
+    }
+
+    private var datesInSelectedWeek: [Date] {
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: selectedDate)
+        let offset = (weekday - calendar.firstWeekday + 7) % 7
+        guard let firstDay = calendar.date(byAdding: .day, value: -offset, to: selectedDate) else { return [selectedDate] }
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: firstDay) }
+    }
+
+    private func weekStart(for date: Date) -> Date {
+        let calendar = Calendar.current
+        let weekday = calendar.component(.weekday, from: date)
+        let offset = (weekday - calendar.firstWeekday + 7) % 7
+        return calendar.date(byAdding: .day, value: -offset, to: calendar.startOfDay(for: date)) ?? calendar.startOfDay(for: date)
+    }
+
+    private func moveSelectedWeek(by amount: Int) {
+        guard let newDate = Calendar.current.date(byAdding: .day, value: amount * 7, to: selectedDate) else { return }
+        let today = Calendar.current.startOfDay(for: Date())
+        selectedDate = min(newDate, today)
+    }
+
+    private var journalSection: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HStack {
+                Text(isShowingToday ? "Today's journals & notes" : "Journals & notes")
+                    .font(.system(size: 22, weight: .semibold, design: .serif))
+                    .foregroundColor(NolaTheme.text)
+                Spacer()
+                Button { showingEntryEditor = true } label: {
+                    Label("Add", systemImage: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundColor(NolaTheme.accent)
+            }
+            if selectedDayEntries.isEmpty {
+                emptyState("No notes for this day yet", detail: "Add a note whenever you’re ready.", icon: "square.and.pencil")
+            } else {
+                ForEach(selectedDayEntries, id: \.objectID) { entry in
+                    NavigationLink(destination: EntryEditor(entry: entry)) {
+                        EntryCard(entry: entry)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    private func emptyState(_ title: String, detail: String, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Label(title, systemImage: icon)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(NolaTheme.text)
+            Text(detail)
+                .font(.system(size: 13))
+                .foregroundColor(NolaTheme.secondaryText)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(NolaTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
     private var memorableMomentsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Moments to remember")
+                Text(isShowingToday ? "Today's moments" : "Moments")
                     .font(.system(size: 22, weight: .semibold, design: .serif))
-                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                    .foregroundColor(NolaTheme.text)
                 Spacer()
                 Button { showingMomentEditor = true } label: {
                     Label("Add", systemImage: "plus")
                         .font(.system(size: 14, weight: .semibold))
                 }
-                .foregroundColor(Color(red: 0.42, green: 0.38, blue: 0.72))
+                .foregroundColor(NolaTheme.accent)
             }
 
-            if moments.isEmpty {
-                Text("Save a small win, a lovely detail, or anything you want to remember.")
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(16)
-                    .background(Color.white.opacity(0.78))
-                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            if selectedDayMoments.isEmpty {
+                emptyState("No moments for this day yet", detail: "Save something you’d like to remember.", icon: "sparkle")
             } else {
-                ForEach(Array(moments.prefix(5)), id: \.objectID) { moment in
+                ForEach(selectedDayMoments, id: \.objectID) { moment in
                     MomentCard(moment: moment) { requestDelete(moment) }
                 }
             }
@@ -243,42 +322,39 @@ private struct TodayScreen: View {
 
     private var moodCheckInCard: some View {
         Button {
-            moodEntryToEdit = todayMood
-            showingMoodCheckIn = true
+            moodSheet = MoodCheckInSheet(entry: selectedDayMood, date: selectedDate)
         } label: {
             HStack(spacing: 14) {
-                Text(todayMood.map { MoodChoice(rawValue: $0.safeMood)?.emoji ?? "🌿" } ?? "🌿")
+                Text(selectedDayMood.map { MoodChoice(rawValue: $0.safeMood)?.emoji ?? "🌿" } ?? "🌿")
                     .font(.system(size: 28))
                     .frame(width: 48, height: 48)
-                    .background(Color(red: 0.93, green: 0.91, blue: 0.86))
+                    .background(NolaTheme.warmSoft)
                     .clipShape(Circle())
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(todayMood.map { "Feeling \(MoodChoice(rawValue: $0.safeMood)?.label.lowercased() ?? "okay")" } ?? "How are you feeling?")
+                    Text(selectedDayMood.map { "Feeling \(MoodChoice(rawValue: $0.safeMood)?.label.lowercased() ?? "okay")" } ?? (isShowingToday ? "How are you feeling?" : "No mood check-in"))
                         .font(.system(size: 16, weight: .semibold, design: .serif))
-                        .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
-                    Text(todayMood == nil ? "Take a small moment to check in" : "Tap to update today’s check-in")
-                        .font(.system(size: 13)).foregroundColor(.secondary)
+                        .foregroundColor(NolaTheme.text)
+                    Text(selectedDayMood == nil ? "Tap to check in" : "\(selectedDayMood!.safeDate, formatter: Self.timeFormatter) · Tap to update")
+                        .font(.system(size: 13)).foregroundColor(NolaTheme.secondaryText)
                 }
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold)).foregroundColor(.secondary)
+                    .font(.system(size: 12, weight: .semibold)).foregroundColor(NolaTheme.secondaryText)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white.opacity(0.78))
+            .background(NolaTheme.surface)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         }
         .buttonStyle(.plain)
     }
 
-    private var recentMoodsSection: some View {
+    private var moodSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Recent check-ins")
+            Text(isShowingToday ? "Today's mood" : "Mood")
                 .font(.system(size: 22, weight: .semibold, design: .serif))
-                .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
-            ForEach(Array(moodEntries.prefix(5)), id: \.objectID) { entry in
-                MoodHistoryRow(entry: entry)
-            }
+                .foregroundColor(NolaTheme.text)
+            moodCheckInCard
         }
     }
 
@@ -287,6 +363,30 @@ private struct TodayScreen: View {
         formatter.dateFormat = "EEEE, MMMM d"
         return formatter
     }()
+
+    private static let weekdayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEEE"
+        return formatter
+    }()
+
+    private static let dayNumberFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d"
+        return formatter
+    }()
+
+    private static let timeFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter
+    }()
+}
+
+private struct MoodCheckInSheet: Identifiable {
+    let id = UUID()
+    let entry: MoodEntry?
+    let date: Date
 }
 
 private struct MomentCard: View {
@@ -296,15 +396,15 @@ private struct MomentCard: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "sparkle")
-                .foregroundColor(Color(red: 0.42, green: 0.38, blue: 0.72))
+                .foregroundColor(NolaTheme.accent)
                 .frame(width: 38, height: 38)
-                .background(Color(red: 0.93, green: 0.91, blue: 0.97))
+                .background(NolaTheme.accentSoft)
                 .clipShape(Circle())
             VStack(alignment: .leading, spacing: 5) {
                 HStack(alignment: .firstTextBaseline) {
                     Text(moment.safeTitle.isEmpty ? "A moment to remember" : moment.safeTitle)
                         .font(.system(size: 16, weight: .semibold, design: .serif))
-                        .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                        .foregroundColor(NolaTheme.text)
                         .lineLimit(2)
                     Spacer(minLength: 4)
                     Text(moment.safeDate, formatter: Self.dateFormatter)
@@ -320,7 +420,7 @@ private struct MomentCard: View {
         }
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.82))
+        .background(NolaTheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
     }
 
@@ -339,6 +439,11 @@ private struct MomentEditorView: View {
     @State private var content = ""
     @State private var showingSaveError = false
     @State private var saveError = ""
+    private let date: Date
+
+    init(date: Date) {
+        self.date = date
+    }
 
     private var canSave: Bool {
         !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -349,26 +454,26 @@ private struct MomentEditorView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Keep a little piece of today.")
                     .font(.system(size: 25, weight: .semibold, design: .serif))
-                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                    .foregroundColor(NolaTheme.text)
                 Text("A small win, a kind moment, something funny, or anything you’d like to remember.")
                     .font(.system(size: 15)).foregroundColor(.secondary)
                 TextField("Give this moment a title", text: $title)
                     .font(.system(size: 17, weight: .medium))
-                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                    .foregroundColor(NolaTheme.text)
                     .padding(14)
-                    .background(Color.white)
+                    .background(NolaTheme.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
                 TextEditor(text: $content)
                     .font(.system(size: 16))
                     .frame(minHeight: 150)
                     .padding(8)
-                    .background(Color.white)
+                    .background(NolaTheme.surface)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                    .foregroundColor(NolaTheme.text)
                     .overlay(alignment: .topLeading) {
                         if content.isEmpty {
                             Text("What happened?")
-                                .font(.system(size: 15)).foregroundColor(Color.gray.opacity(0.65))
+                                .font(.system(size: 15)).foregroundColor(NolaTheme.secondaryText.opacity(0.7))
                                 .padding(.leading, 13).padding(.top, 16)
                                 .allowsHitTesting(false)
                         }
@@ -376,7 +481,7 @@ private struct MomentEditorView: View {
                 Spacer(minLength: 0)
             }
             .padding(22)
-            .background(Color(red: 0.97, green: 0.96, blue: 0.94).ignoresSafeArea())
+            .background(NolaTheme.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -402,7 +507,8 @@ private struct MomentEditorView: View {
         moment.id = UUID()
         moment.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         moment.content = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        moment.date = Date()
+        let now = Calendar.current.dateComponents([.hour, .minute, .second], from: Date())
+        moment.date = Calendar.current.date(bySettingHour: now.hour ?? 12, minute: now.minute ?? 0, second: now.second ?? 0, of: date) ?? date
         do {
             try PersistenceController.shared.save()
             presentationMode.wrappedValue.dismiss()
@@ -470,14 +576,14 @@ private struct MoodHistoryRow: View {
             }
         }
         .padding(14)
-        .background(Color.white.opacity(0.78))
+        .background(NolaTheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
         return formatter
     }()
 }
@@ -490,9 +596,11 @@ private struct MoodCheckInView: View {
     @State private var showingSaveError = false
     @State private var saveErrorMessage = ""
     private let entry: MoodEntry?
+    private let date: Date
 
-    init(entry: MoodEntry?) {
+    init(entry: MoodEntry?, date: Date) {
         self.entry = entry
+        self.date = date
         _selectedMood = State(initialValue: entry?.safeMood ?? "")
         _note = State(initialValue: entry?.safeNote ?? "")
     }
@@ -502,9 +610,9 @@ private struct MoodCheckInView: View {
             VStack(alignment: .leading, spacing: 22) {
                 Text("How are you feeling?")
                     .font(.system(size: 28, weight: .semibold, design: .serif))
-                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                    .foregroundColor(NolaTheme.text)
                 Text("There’s no right answer. Just notice where you are.")
-                    .font(.system(size: 15)).foregroundColor(Color(red: 0.38, green: 0.37, blue: 0.42))
+                    .font(.system(size: 15)).foregroundColor(NolaTheme.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 7) {
@@ -518,29 +626,29 @@ private struct MoodCheckInView: View {
                             }
                             .frame(maxWidth: .infinity, minHeight: 82)
                             .padding(.vertical, 5)
-                            .background(selectedMood == mood.rawValue ? Color(red: 0.91, green: 0.89, blue: 0.97) : Color.white)
-                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(selectedMood == mood.rawValue ? Color(red: 0.42, green: 0.38, blue: 0.72) : Color.clear, lineWidth: 1.5))
+                            .background(selectedMood == mood.rawValue ? NolaTheme.accentSoft : NolaTheme.surface)
+                            .overlay(RoundedRectangle(cornerRadius: 14).stroke(selectedMood == mood.rawValue ? NolaTheme.accent : Color.clear, lineWidth: 1.5))
                             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         }
                         .buttonStyle(.plain)
-                        .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                        .foregroundColor(NolaTheme.text)
                     }
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Anything behind that feeling?")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(Color(red: 0.25, green: 0.24, blue: 0.30))
+                        .foregroundColor(NolaTheme.text)
                     TextEditor(text: $note)
                         .frame(minHeight: 110)
                         .padding(8)
-                        .background(Color.white)
+                        .background(NolaTheme.surface)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                        .foregroundColor(NolaTheme.text)
                         .overlay(alignment: .topLeading) {
                             if note.isEmpty {
                                 Text("Optional note")
-                                    .font(.system(size: 15)).foregroundColor(Color.gray.opacity(0.65))
+                                    .font(.system(size: 15)).foregroundColor(NolaTheme.secondaryText.opacity(0.7))
                                     .padding(.leading, 13).padding(.top, 16)
                                     .allowsHitTesting(false)
                             }
@@ -549,7 +657,7 @@ private struct MoodCheckInView: View {
                 Spacer(minLength: 0)
             }
             .padding(22)
-            .background(Color(red: 0.97, green: 0.96, blue: 0.94).ignoresSafeArea())
+            .background(NolaTheme.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
@@ -574,7 +682,8 @@ private struct MoodCheckInView: View {
         let target = entry ?? MoodEntry(context: context)
         if entry == nil {
             target.id = UUID()
-            target.date = Date()
+            let now = Calendar.current.dateComponents([.hour, .minute, .second], from: Date())
+            target.date = Calendar.current.date(bySettingHour: now.hour ?? 12, minute: now.minute ?? 0, second: now.second ?? 0, of: date) ?? date
         }
         target.mood = selectedMood
         let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -645,7 +754,7 @@ private struct JournalScreen: View {
                     .listStyle(.plain)
                 }
             }
-            .background(Color(red: 0.97, green: 0.96, blue: 0.94))
+            .background(NolaTheme.background)
             .navigationTitle("Journal")
             .searchable(text: $searchText, prompt: "Search titles and notes")
             .toolbar {
@@ -818,7 +927,7 @@ private struct EntryCard: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(entry.safeTitle.isEmpty ? "Untitled" : entry.safeTitle)
                     .font(.system(size: 17, weight: .semibold, design: .serif))
-                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                    .foregroundColor(NolaTheme.text)
                     .lineLimit(1)
                 Spacer(minLength: 8)
                 Text(entry.safeCreatedAt, formatter: Self.dateFormatter)
@@ -830,7 +939,7 @@ private struct EntryCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.82))
+        .background(NolaTheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
     }
 
@@ -847,96 +956,130 @@ private struct EntryEditor: View {
     @Environment(\.presentationMode) private var presentationMode
     @State private var title: String
     @State private var content: String
-    @State private var showingDiscardAlert = false
     @State private var showingSaveError = false
     @State private var saveErrorMessage = ""
-    private let entry: JournalEntry?
-    private let originalTitle: String
-    private let originalContent: String
-    private let isNewEntry: Bool
+    @State private var entry: JournalEntry?
+    @State private var lastSavedTitle: String
+    @State private var lastSavedContent: String
+    @State private var saveStatus = "Saved"
+    @State private var saveWorkItem: DispatchWorkItem?
+    private let defaultDate: Date
 
-    init(entry: JournalEntry?) {
-        self.entry = entry
+    init(entry: JournalEntry?, defaultDate: Date = Date()) {
+        _entry = State(initialValue: entry)
         let title = entry?.safeTitle == "Untitled" ? "" : (entry?.safeTitle ?? "")
         let content = entry?.safeContent ?? ""
-        isNewEntry = entry == nil
-        originalTitle = title
-        originalContent = content
+        let normalizedDate = Calendar.current.startOfDay(for: defaultDate)
+        self.defaultDate = normalizedDate
+        _lastSavedTitle = State(initialValue: title)
+        _lastSavedContent = State(initialValue: content)
         _title = State(initialValue: title)
         _content = State(initialValue: content)
     }
 
-    private var hasChanges: Bool { title != originalTitle || content != originalContent }
-    private var canSave: Bool { !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var trimmedTitle: String { title.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var trimmedContent: String { content.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var canSave: Bool { !trimmedTitle.isEmpty || !trimmedContent.isEmpty }
+    private var hasUnsavedChanges: Bool { trimmedTitle != lastSavedTitle || trimmedContent != lastSavedContent }
 
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
                 TextField("Give this entry a title", text: $title)
                     .font(.system(size: 25, weight: .semibold, design: .serif))
-                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                    .foregroundColor(NolaTheme.text)
                     .padding(.horizontal, 20).padding(.top, 20)
                 Divider().padding(.horizontal, 20).padding(.top, 15)
                 TextEditor(text: $content)
                     .font(.system(size: 17))
                     .padding(.horizontal, 14).padding(.top, 10)
-                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
+                    .foregroundColor(NolaTheme.text)
                     .overlay(alignment: .topLeading) {
                         if content.isEmpty {
                             Text("What’s on your mind?")
-                                .font(.system(size: 17)).foregroundColor(Color.gray.opacity(0.65))
+                                .font(.system(size: 17)).foregroundColor(NolaTheme.secondaryText.opacity(0.7))
                                 .padding(.leading, 20).padding(.top, 18)
                                 .allowsHitTesting(false)
                         }
                     }
             }
-            .background(Color(red: 0.99, green: 0.985, blue: 0.97))
+            .background(NolaTheme.raisedSurface)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { cancel() }
+                    Button("Close") { close() }
+                }
+                ToolbarItem(placement: .principal) {
+                    Text(saveStatus)
+                        .font(.system(size: 12))
+                        .foregroundColor(NolaTheme.secondaryText)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") { save() }
+                    Button("Done") { close() }
                         .font(.system(size: 17, weight: .semibold))
-                        .disabled(!canSave)
+                        .disabled(!canSave && entry == nil)
                 }
             }
-            .alert("Discard changes?", isPresented: $showingDiscardAlert) {
-                Button("Keep Editing", role: .cancel) { }
-                Button("Discard", role: .destructive) { presentationMode.wrappedValue.dismiss() }
-            } message: { Text("Your unsaved writing will be lost.") }
+            .onChange(of: title) { _ in scheduleAutosave() }
+            .onChange(of: content) { _ in scheduleAutosave() }
+            .onDisappear {
+                saveWorkItem?.cancel()
+                saveDraft()
+            }
         }
         .navigationViewStyle(.stack)
         .alert("Couldn’t save entry", isPresented: $showingSaveError) {
-            Button("OK", role: .cancel) { }
+            Button("OK", role: .cancel) { showingSaveError = false }
         } message: {
             Text(saveErrorMessage)
         }
     }
 
-    private func cancel() {
-        if hasChanges { showingDiscardAlert = true }
-        else { presentationMode.wrappedValue.dismiss() }
+    private func close() {
+        saveWorkItem?.cancel()
+        saveDraft()
+        if !showingSaveError {
+            presentationMode.wrappedValue.dismiss()
+        }
     }
 
-    private func save() {
-        let target = entry ?? JournalEntry(context: context)
-        if isNewEntry {
+    private func scheduleAutosave() {
+        guard canSave else { return }
+        saveWorkItem?.cancel()
+        saveStatus = "Saving…"
+        let workItem = DispatchWorkItem { saveDraft() }
+        saveWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65, execute: workItem)
+    }
+
+    private func saveDraft() {
+        guard canSave, hasUnsavedChanges else { return }
+        let isNewEntry = entry == nil
+        let target: JournalEntry
+        if let existing = entry {
+            target = existing
+        } else {
+            target = JournalEntry(context: context)
             target.id = UUID()
-            target.createdAt = Date()
             target.entryType = "daily"
+            target.createdAt = defaultDate
+            entry = target
         }
-        target.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        target.content = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        target.title = trimmedTitle
+        target.content = trimmedContent
         target.updatedAt = Date()
         do {
             try PersistenceController.shared.save()
-            presentationMode.wrappedValue.dismiss()
+            lastSavedTitle = trimmedTitle
+            lastSavedContent = trimmedContent
+            saveStatus = "Saved"
+            showingSaveError = false
         } catch {
             context.rollback()
+            if isNewEntry { entry = nil }
             saveErrorMessage = error.localizedDescription
             showingSaveError = true
+            saveStatus = "Couldn’t save"
         }
     }
 }
