@@ -80,3 +80,4 @@ class CoreDataTests: XCTestCase {
         XCTAssertEqual(entry.safeEntryType, "brain_dump")
     }
 }
+
