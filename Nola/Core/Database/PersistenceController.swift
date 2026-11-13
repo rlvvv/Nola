@@ -6,7 +6,19 @@ struct PersistenceController {
     let container: NSPersistentContainer
 
     init(inMemory: Bool = false) {
-        container = NSPersistentContainer(name: "Nola")
+        let appBundle = Bundle(for: JournalEntry.self)
+        let modelURL = appBundle.url(forResource: "Nola", withExtension: "momd")
+            ?? Bundle.main.url(forResource: "Nola", withExtension: "momd")
+
+        guard let modelURL,
+              let model = NSManagedObjectModel(contentsOf: modelURL) else {
+            fatalError("Could not load Nola.momd from the app bundle.")
+        }
+        guard model.entitiesByName["JournalEntry"] != nil else {
+            fatalError("Nola.momd loaded, but it does not contain the JournalEntry entity.")
+        }
+
+        container = NSPersistentContainer(name: "Nola", managedObjectModel: model)
         if inMemory {
             container.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
         }
