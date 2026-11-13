@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreData
+import UniformTypeIdentifiers
 
 @main
 struct NolaApp: App {
@@ -584,8 +585,12 @@ private struct JournalScreen: View {
     @State private var searchText = ""
     @State private var showingEditor = false
     @State private var entryToDelete: JournalEntry?
-    @State private var showingDeleteError = false
-    @State private var deleteErrorMessage = ""
+    @State private var showingJournalAlert = false
+    @State private var journalAlertTitle = "Journal backup"
+    @State private var journalAlertMessage = ""
+    @State private var showingBackupImporter = false
+    @State private var showingBackupExporter = false
+    @State private var backupDocument: JournalBackupFile?
 
     private var visibleEntries: [JournalEntry] {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -632,6 +637,23 @@ private struct JournalScreen: View {
             .navigationTitle("Journal")
             .searchable(text: $searchText, prompt: "Search titles and notes")
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Menu {
+                        Button {
+                            prepareBackupExport()
+                        } label: {
+                            Label("Export readable backup", systemImage: "square.and.arrow.up")
+                        }
+                        Button {
+                            showingBackupImporter = true
+                        } label: {
+                            Label("Import backup", systemImage: "square.and.arrow.down")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel("Journal backup options")
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { showingEditor = true } label: { Image(systemName: "plus") }
                         .accessibilityLabel("New entry")
@@ -648,10 +670,29 @@ private struct JournalScreen: View {
             }
         }
         .navigationViewStyle(.stack)
-        .alert("Couldn’t delete entry", isPresented: $showingDeleteError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(deleteErrorMessage)
+        .fileImporter(isPresented: $showingBackupImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
+            importBackup(result)
+        }
+        .fileExporter(
+            isPresented: $showingBackupExporter,
+            document: backupDocument,
+            contentType: .json,
+            defaultFilename: "Nola-Journal-Backup"
+        ) { result in
+            switch result {
+            case .success:
+                presentJournalAlert(title: "Backup exported", message: "Your readable Nola backup was saved.")
+            case .failure(let error):
+                presentJournalAlert(title: "Couldn’t export backup", message: error.localizedDescription)
+            }
+            backupDocument = nil
+        }
+        .alert(isPresented: $showingJournalAlert) {
+            Alert(
+                title: Text(journalAlertTitle),
+                message: Text(journalAlertMessage),
+                dismissButton: .default(Text("OK"))
+            )
         }
     }
 
@@ -663,10 +704,64 @@ private struct JournalScreen: View {
             entryToDelete = nil
         } catch {
             context.rollback()
-            deleteErrorMessage = error.localizedDescription
-            showingDeleteError = true
+            presentJournalAlert(title: "Couldn’t delete entry", message: error.localizedDescription)
             entryToDelete = nil
         }
+    }
+
+    private func prepareBackupExport() {
+        do {
+            let backup = try JournalBackup.make(from: context)
+            backupDocument = JournalBackupFile(data: try backup.encodedData())
+            showingBackupExporter = true
+        } catch {
+            presentJournalAlert(title: "Couldn’t create backup", message: error.localizedDescription)
+        }
+    }
+
+    private func importBackup(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            let hasScopedAccess = url.startAccessingSecurityScopedResource()
+            defer {
+                if hasScopedAccess { url.stopAccessingSecurityScopedResource() }
+            }
+            do {
+                let backup = try JournalBackup.decode(Data(contentsOf: url))
+                let imported = try backup.merge(into: context)
+                presentJournalAlert(title: "Backup imported", message: imported.summary)
+            } catch {
+                presentJournalAlert(title: "Couldn’t import backup", message: error.localizedDescription)
+            }
+        case .failure(let error):
+            presentJournalAlert(title: "Couldn’t import backup", message: error.localizedDescription)
+        }
+    }
+
+    private func presentJournalAlert(title: String, message: String) {
+        journalAlertTitle = title
+        journalAlertMessage = message
+        showingJournalAlert = true
+    }
+}
+
+private struct JournalBackupFile: FileDocument {
+    static var readableContentTypes: [UTType] { [.json] }
+    static var writableContentTypes: [UTType] { [.json] }
+
+    let data: Data
+
+    init(data: Data) {
+        self.data = data
+    }
+
+    init(configuration: ReadConfiguration) throws {
+        data = configuration.file.regularFileContents ?? Data()
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }
 
