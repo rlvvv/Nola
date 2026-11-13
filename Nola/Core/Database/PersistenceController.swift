@@ -55,14 +55,9 @@ final class PersistenceController: ObservableObject {
         container.viewContext.automaticallyMergesChangesFromParent = true
     }
 
-    func save() {
+    func save() throws {
         let context = container.viewContext
         guard context.hasChanges else { return }
-        do {
-            try context.save()
-        } catch {
-            let nsError = error as NSError
-            print("Core Data save error: \(nsError), \(nsError.userInfo)")
-        }
+        try context.save()
     }
 }
