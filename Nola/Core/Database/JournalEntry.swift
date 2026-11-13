@@ -29,3 +29,4 @@ extension JournalEntry: Identifiable {
     public var safeUpdatedAt: Date { updatedAt ?? Date() }
     public var safeEntryType: String { entryType ?? "daily" }
 }
+
