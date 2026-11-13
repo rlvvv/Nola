@@ -728,7 +728,8 @@ private struct JournalScreen: View {
                 if hasScopedAccess { url.stopAccessingSecurityScopedResource() }
             }
             do {
-                let backup = try JournalBackup.decode(Data(contentsOf: url))
+                let backupData = try JournalBackup.readFile(at: url)
+                let backup = try JournalBackup.decode(backupData)
                 let imported = try backup.merge(into: context)
                 presentJournalAlert(title: "Backup imported", message: imported.summary)
             } catch {
