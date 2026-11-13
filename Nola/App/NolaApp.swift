@@ -581,26 +581,39 @@ private struct JournalScreen: View {
     @Environment(\.managedObjectContext) private var context
     @FetchRequest(fetchRequest: JournalEntry.sortedFetchRequest())
     private var entries: FetchedResults<JournalEntry>
+    @State private var searchText = ""
     @State private var showingEditor = false
     @State private var entryToDelete: JournalEntry?
     @State private var showingDeleteError = false
     @State private var deleteErrorMessage = ""
 
+    private var visibleEntries: [JournalEntry] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return Array(entries) }
+        return entries.filter {
+            $0.safeTitle.localizedCaseInsensitiveContains(query) ||
+            $0.safeContent.localizedCaseInsensitiveContains(query)
+        }
+    }
+
     var body: some View {
         NavigationView {
             Group {
-                if entries.isEmpty {
+                if visibleEntries.isEmpty {
                     VStack(spacing: 12) {
-                        Image(systemName: "book.closed").font(.system(size: 34)).foregroundColor(.secondary)
-                        Text("Your journal starts here")
+                        Image(systemName: searchText.isEmpty ? "book.closed" : "magnifyingglass")
+                            .font(.system(size: 34)).foregroundColor(.secondary)
+                        Text(searchText.isEmpty ? "Your journal starts here" : "No matching entries")
                             .font(.system(size: 21, weight: .semibold, design: .serif))
-                        Text("Write your first entry and it will be saved on this device.")
+                        Text(searchText.isEmpty
+                             ? "Write your first entry and it will be saved on this device."
+                             : "Try another word or phrase.")
                             .font(.system(size: 15)).foregroundColor(.secondary).multilineTextAlignment(.center)
                     }
                     .padding(32)
                 } else {
                     List {
-                        ForEach(entries, id: \.objectID) { entry in
+                        ForEach(visibleEntries, id: \.objectID) { entry in
                             NavigationLink(destination: EntryEditor(entry: entry)) {
                                 EntryCard(entry: entry).padding(.vertical, 5)
                             }
@@ -617,6 +630,7 @@ private struct JournalScreen: View {
             }
             .background(Color(red: 0.97, green: 0.96, blue: 0.94))
             .navigationTitle("Journal")
+            .searchable(text: $searchText, prompt: "Search titles and notes")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button { showingEditor = true } label: { Image(systemName: "plus") }
