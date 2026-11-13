@@ -23,3 +23,4 @@ extension MoodEntry: Identifiable {
     public var safeMood: String { mood ?? "okay" }
     public var safeNote: String { note ?? "" }
 }
+
