@@ -14,8 +14,16 @@
         <attribute name="mood" optional="NO" attributeType="String"/>
         <attribute name="note" optional="YES" attributeType="String"/>
     </entity>
+    <entity name="MemorableMoment" representedClassName="MemorableMoment" syncable="YES">
+        <attribute name="id" optional="NO" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="title" optional="YES" attributeType="String"/>
+        <attribute name="content" optional="NO" attributeType="String"/>
+        <attribute name="date" optional="NO" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
     <elements>
         <element name="JournalEntry" positionX="-63" positionY="-18" width="128" height="134"/>
         <element name="MoodEntry" positionX="157" positionY="-18" width="128" height="104"/>
+        <element name="MemorableMoment" positionX="377" positionY="-18" width="150" height="104"/>
     </elements>
 </model>
+
