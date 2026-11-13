@@ -8,7 +8,7 @@ public class MemorableMoment: NSManagedObject {
 
     @nonobjc public class func sortedFetchRequest() -> NSFetchRequest<MemorableMoment> {
         let request = fetchRequest()
-        request.sortDescriptors = [NSSortDescriptor(keyPath: \\MemorableMoment.date, ascending: false)]
+        request.sortDescriptors = [NSSortDescriptor(keyPath: \MemorableMoment.date, ascending: false)]
         return request
     }
 
