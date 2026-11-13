@@ -21,6 +21,7 @@
 		AA000000000000000000003B /* Nola.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002B /* Nola.xcdatamodeld */; };
 		AA000000000000000000003C /* MoodEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002D /* MoodEntry.swift */; };
 		AA000000000000000000003D /* MemorableMoment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002E /* MemorableMoment.swift */; };
+		AA000000000000000000003E /* JournalBackup.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000002F /* JournalBackup.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,6 +41,7 @@
 		AA000000000000000000002C /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA000000000000000000002D /* MoodEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoodEntry.swift; sourceTree = "<group>"; };
 		AA000000000000000000002E /* MemorableMoment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemorableMoment.swift; sourceTree = "<group>"; };
+		AA000000000000000000002F /* JournalBackup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalBackup.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -126,6 +128,7 @@
 			isa = PBXGroup;
 			children = (
 				AA0000000000000000000027 /* DateHelpers.swift */,
+				AA000000000000000000002F /* JournalBackup.swift */,
 			);
 			path = Utilities;
 			sourceTree = "<group>";
@@ -253,6 +256,7 @@
 				AA000000000000000000003B /* Nola.xcdatamodeld in Sources */,
 				AA000000000000000000003C /* MoodEntry.swift in Sources */,
 				AA000000000000000000003D /* MemorableMoment.swift in Sources */,
+				AA000000000000000000003E /* JournalBackup.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
