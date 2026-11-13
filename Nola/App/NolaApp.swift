@@ -7,6 +7,12 @@ import UniformTypeIdentifiers
 struct NolaApp: App {
     @StateObject private var persistence = PersistenceController.shared
 
+    init() {
+        // Nola uses a light palette; clear UIKit-backed editor surfaces so
+        // they display the rounded SwiftUI field backgrounds beneath them.
+        UITextView.appearance().backgroundColor = .clear
+    }
+
     var body: some Scene {
         WindowGroup {
             Group {
@@ -19,6 +25,7 @@ struct NolaApp: App {
                     ProgressView("Opening your journal…")
                 }
             }
+            .preferredColorScheme(.light)
         }
     }
 }
@@ -347,6 +354,7 @@ private struct MomentEditorView: View {
                     .font(.system(size: 15)).foregroundColor(.secondary)
                 TextField("Give this moment a title", text: $title)
                     .font(.system(size: 17, weight: .medium))
+                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
                     .padding(14)
                     .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
@@ -356,6 +364,7 @@ private struct MomentEditorView: View {
                     .padding(8)
                     .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
                     .overlay(alignment: .topLeading) {
                         if content.isEmpty {
                             Text("What happened?")
@@ -495,7 +504,7 @@ private struct MoodCheckInView: View {
                     .font(.system(size: 28, weight: .semibold, design: .serif))
                     .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
                 Text("There’s no right answer. Just notice where you are.")
-                    .font(.system(size: 15)).foregroundColor(.secondary)
+                    .font(.system(size: 15)).foregroundColor(Color(red: 0.38, green: 0.37, blue: 0.42))
                     .fixedSize(horizontal: false, vertical: true)
 
                 HStack(spacing: 7) {
@@ -521,11 +530,13 @@ private struct MoodCheckInView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Anything behind that feeling?")
                         .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(Color(red: 0.25, green: 0.24, blue: 0.30))
                     TextEditor(text: $note)
                         .frame(minHeight: 110)
                         .padding(8)
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
                         .overlay(alignment: .topLeading) {
                             if note.isEmpty {
                                 Text("Optional note")
@@ -863,11 +874,13 @@ private struct EntryEditor: View {
             VStack(spacing: 0) {
                 TextField("Give this entry a title", text: $title)
                     .font(.system(size: 25, weight: .semibold, design: .serif))
+                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
                     .padding(.horizontal, 20).padding(.top, 20)
                 Divider().padding(.horizontal, 20).padding(.top, 15)
                 TextEditor(text: $content)
                     .font(.system(size: 17))
                     .padding(.horizontal, 14).padding(.top, 10)
+                    .foregroundColor(Color(red: 0.19, green: 0.18, blue: 0.24))
                     .overlay(alignment: .topLeading) {
                         if content.isEmpty {
                             Text("What’s on your mind?")
