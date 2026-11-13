@@ -155,6 +155,8 @@ private struct JournalScreen: View {
     private var entries: FetchedResults<JournalEntry>
     @State private var showingEditor = false
     @State private var entryToDelete: JournalEntry?
+    @State private var showingDeleteError = false
+    @State private var deleteErrorMessage = ""
 
     var body: some View {
         NavigationView {
@@ -204,13 +206,25 @@ private struct JournalScreen: View {
             }
         }
         .navigationViewStyle(.stack)
+        .alert("Couldn’t delete entry", isPresented: $showingDeleteError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(deleteErrorMessage)
+        }
     }
 
     private func deleteSelectedEntry() {
         guard let entry = entryToDelete else { return }
         context.delete(entry)
-        PersistenceController.shared.save()
-        entryToDelete = nil
+        do {
+            try PersistenceController.shared.save()
+            entryToDelete = nil
+        } catch {
+            context.rollback()
+            deleteErrorMessage = error.localizedDescription
+            showingDeleteError = true
+            entryToDelete = nil
+        }
     }
 }
 
@@ -252,6 +266,8 @@ private struct EntryEditor: View {
     @State private var title: String
     @State private var content: String
     @State private var showingDiscardAlert = false
+    @State private var showingSaveError = false
+    @State private var saveErrorMessage = ""
     private let entry: JournalEntry?
     private let originalTitle: String
     private let originalContent: String
@@ -308,6 +324,11 @@ private struct EntryEditor: View {
             } message: { Text("Your unsaved writing will be lost.") }
         }
         .navigationViewStyle(.stack)
+        .alert("Couldn’t save entry", isPresented: $showingSaveError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(saveErrorMessage)
+        }
     }
 
     private func cancel() {
@@ -325,7 +346,13 @@ private struct EntryEditor: View {
         target.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         target.content = content.trimmingCharacters(in: .whitespacesAndNewlines)
         target.updatedAt = Date()
-        PersistenceController.shared.save()
-        presentationMode.wrappedValue.dismiss()
+        do {
+            try PersistenceController.shared.save()
+            presentationMode.wrappedValue.dismiss()
+        } catch {
+            context.rollback()
+            saveErrorMessage = error.localizedDescription
+            showingSaveError = true
+        }
     }
 }
