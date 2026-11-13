@@ -8,7 +8,14 @@
         <attribute name="updatedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="entryType" optional="YES" attributeType="String" defaultValueString="daily"/>
     </entity>
+    <entity name="MoodEntry" representedClassName="MoodEntry" syncable="YES">
+        <attribute name="id" optional="NO" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="date" optional="NO" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="mood" optional="NO" attributeType="String"/>
+        <attribute name="note" optional="YES" attributeType="String"/>
+    </entity>
     <elements>
         <element name="JournalEntry" positionX="-63" positionY="-18" width="128" height="134"/>
+        <element name="MoodEntry" positionX="157" positionY="-18" width="128" height="104"/>
     </elements>
 </model>
