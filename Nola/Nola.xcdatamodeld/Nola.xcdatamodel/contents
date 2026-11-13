@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="26000" systemVersion="25G332" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
-    <entity name="JournalEntry" representedClassName="JournalEntry" syncable="YES" codeGenerationType="manual/none">
+    <entity name="JournalEntry" representedClassName="JournalEntry" syncable="YES">
         <attribute name="id" optional="NO" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="title" optional="YES" attributeType="String"/>
         <attribute name="content" optional="YES" attributeType="String"/>
