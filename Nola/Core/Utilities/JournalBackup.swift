@@ -63,6 +63,26 @@ struct JournalBackup: Codable {
         return backup
     }
 
+    static func readFile(at url: URL) throws -> Data {
+        var fileData: Data?
+        var readError: Error?
+        var coordinationError: NSError?
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+
+        coordinator.coordinate(readingItemAt: url, options: [], error: &coordinationError) { readableURL in
+            do {
+                fileData = try Data(contentsOf: readableURL)
+            } catch {
+                readError = error
+            }
+        }
+
+        if let coordinationError = coordinationError { throw coordinationError }
+        if let readError = readError { throw readError }
+        guard let data = fileData else { throw JournalBackupError.fileCouldNotBeRead }
+        return data
+    }
+
     func merge(into context: NSManagedObjectContext) throws -> JournalBackupImportResult {
         let existingEntryIDs = Set(try context.fetch(JournalEntry.fetchRequest()).compactMap(\.id))
         let existingMoodIDs = Set(try context.fetch(MoodEntry.fetchRequest()).compactMap(\.id))
@@ -153,11 +173,14 @@ struct JournalBackupImportResult {
 
 enum JournalBackupError: LocalizedError {
     case unsupportedVersion(Int)
+    case fileCouldNotBeRead
 
     var errorDescription: String? {
         switch self {
         case .unsupportedVersion(let version):
             return "This backup uses format version \(version), which this version of Nola doesn’t support."
+        case .fileCouldNotBeRead:
+            return "Nola couldn’t read data from the selected backup file. Try saving it to On My iPhone and importing it again."
         }
     }
 }
