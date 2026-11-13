@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreData
+import UIKit
 import UniformTypeIdentifiers
 
 @main
@@ -670,8 +671,13 @@ private struct JournalScreen: View {
             }
         }
         .navigationViewStyle(.stack)
-        .fileImporter(isPresented: $showingBackupImporter, allowedContentTypes: [.json], allowsMultipleSelection: false) { result in
-            importBackup(result)
+        .sheet(isPresented: $showingBackupImporter) {
+            BackupDocumentPicker { selectedURL in
+                showingBackupImporter = false
+                if let selectedURL = selectedURL {
+                    importBackup(from: selectedURL)
+                }
+            }
         }
         .fileExporter(
             isPresented: $showingBackupExporter,
@@ -719,23 +725,17 @@ private struct JournalScreen: View {
         }
     }
 
-    private func importBackup(_ result: Result<[URL], Error>) {
-        switch result {
-        case .success(let urls):
-            guard let url = urls.first else { return }
-            let hasScopedAccess = url.startAccessingSecurityScopedResource()
-            defer {
-                if hasScopedAccess { url.stopAccessingSecurityScopedResource() }
-            }
-            do {
-                let backupData = try JournalBackup.readFile(at: url)
-                let backup = try JournalBackup.decode(backupData)
-                let imported = try backup.merge(into: context)
-                presentJournalAlert(title: "Backup imported", message: imported.summary)
-            } catch {
-                presentJournalAlert(title: "Couldn’t import backup", message: error.localizedDescription)
-            }
-        case .failure(let error):
+    private func importBackup(from url: URL) {
+        let hasScopedAccess = url.startAccessingSecurityScopedResource()
+        defer {
+            if hasScopedAccess { url.stopAccessingSecurityScopedResource() }
+        }
+        do {
+            let backupData = try JournalBackup.readFile(at: url)
+            let backup = try JournalBackup.decode(backupData)
+            let imported = try backup.merge(into: context)
+            presentJournalAlert(title: "Backup imported", message: imported.summary)
+        } catch {
             presentJournalAlert(title: "Couldn’t import backup", message: error.localizedDescription)
         }
     }
@@ -763,6 +763,39 @@ private struct JournalBackupFile: FileDocument {
 
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
         FileWrapper(regularFileWithContents: data)
+    }
+}
+
+private struct BackupDocumentPicker: UIViewControllerRepresentable {
+    let onPick: (URL?) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPick: onPick)
+    }
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.data], asCopy: true)
+        picker.delegate = context.coordinator
+        picker.allowsMultipleSelection = false
+        return picker
+    }
+
+    func updateUIViewController(_ controller: UIDocumentPickerViewController, context: Context) { }
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        private let onPick: (URL?) -> Void
+
+        init(onPick: @escaping (URL?) -> Void) {
+            self.onPick = onPick
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            onPick(urls.first)
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            onPick(nil)
+        }
     }
 }
 
