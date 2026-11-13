@@ -49,9 +49,17 @@ jobs:
             let expected = Set(["id", "title", "content", "createdAt", "updatedAt", "entryType"])
             let actual = Set(entity.propertiesByName.keys)
             guard expected.isSubset(of: actual) else {
-                fatalError("JournalEntry is missing expected attributes: \\(expected.subtracting(actual))")
+                fatalError("JournalEntry is missing expected attributes: \(expected.subtracting(actual))")
             }
-            print("Verified JournalEntry entity and attributes in Nola.mom")
+            guard let moodEntity = model.entitiesByName["MoodEntry"] else {
+                fatalError("The compiled model has no MoodEntry entity")
+            }
+            let expectedMood = Set(["id", "date", "mood", "note"])
+            let actualMood = Set(moodEntity.propertiesByName.keys)
+            guard expectedMood.isSubset(of: actualMood) else {
+                fatalError("MoodEntry is missing expected attributes: \(expectedMood.subtracting(actualMood))")
+            }
+            print("Verified JournalEntry and MoodEntry entities in Nola.mom")
           ' "$MODEL_PATH"
 
       # Package the built .app into an unsigned .ipa for SideStore.
