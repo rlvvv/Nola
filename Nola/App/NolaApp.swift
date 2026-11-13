@@ -37,7 +37,7 @@ private struct RootView: View {
 
 private struct TodayScreen: View {
     @Binding var showingEditor: Bool
-    @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \JournalEntry.createdAt, ascending: false)])
+    @FetchRequest(fetchRequest: JournalEntry.sortedFetchRequest())
     private var entries: FetchedResults<JournalEntry>
 
     private var todayEntries: [JournalEntry] {
@@ -122,7 +122,7 @@ private struct TodayScreen: View {
 
 private struct JournalScreen: View {
     @Environment(\.managedObjectContext) private var context
-    @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \JournalEntry.createdAt, ascending: false)])
+    @FetchRequest(fetchRequest: JournalEntry.sortedFetchRequest())
     private var entries: FetchedResults<JournalEntry>
     @State private var showingEditor = false
     @State private var entryToDelete: JournalEntry?
@@ -300,4 +300,3 @@ private struct EntryEditor: View {
         presentationMode.wrappedValue.dismiss()
     }
 }
-
