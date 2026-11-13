@@ -1,30 +1,54 @@
+import Combine
 import CoreData
 
-struct PersistenceController {
+final class PersistenceController: ObservableObject {
     static let shared = PersistenceController()
 
     let container: NSPersistentContainer
+    @Published private(set) var isStoreReady = false
+    @Published private(set) var startupError: String?
 
     init(inMemory: Bool = false) {
         let appBundle = Bundle(for: JournalEntry.self)
         let modelURL = appBundle.url(forResource: "Nola", withExtension: "momd")
             ?? Bundle.main.url(forResource: "Nola", withExtension: "momd")
 
-        guard let modelURL,
-              let model = NSManagedObjectModel(contentsOf: modelURL) else {
-            fatalError("Could not load Nola.momd from the app bundle.")
-        }
-        guard model.entitiesByName["JournalEntry"] != nil else {
-            fatalError("Nola.momd loaded, but it does not contain the JournalEntry entity.")
+        let model: NSManagedObjectModel
+        let modelError: String?
+        if let modelURL,
+           let loadedModel = NSManagedObjectModel(contentsOf: modelURL),
+           loadedModel.entitiesByName["JournalEntry"] != nil {
+            model = loadedModel
+            modelError = nil
+        } else {
+            model = NSManagedObjectModel()
+            modelError = "Nola could not load a Core Data model containing JournalEntry. The journal store was not opened."
         }
 
         container = NSPersistentContainer(name: "Nola", managedObjectModel: model)
-        if inMemory {
-            container.persistentStoreDescriptions.first?.url = URL(fileURLWithPath: "/dev/null")
+        if let modelError = modelError {
+            startupError = modelError
+            return
         }
-        container.loadPersistentStores { storeDescription, error in
-            if let error = error as NSError? {
-                fatalError("Unresolved error \(error), \(error.userInfo)")
+
+        if let storeDescription = container.persistentStoreDescriptions.first {
+            if inMemory {
+                storeDescription.url = URL(fileURLWithPath: "/dev/null")
+            } else {
+                // The previous builds could create an empty store. Infer a
+                // lightweight migration when the corrected model is installed.
+                storeDescription.shouldMigrateStoreAutomatically = true
+                storeDescription.shouldInferMappingModelAutomatically = true
+            }
+        }
+
+        container.loadPersistentStores { [weak self] _, error in
+            DispatchQueue.main.async {
+                if let error = error {
+                    self?.startupError = "Nola could not open its local journal store: \(error.localizedDescription)"
+                    return
+                }
+                self?.isStoreReady = true
             }
         }
         container.viewContext.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
@@ -33,13 +57,12 @@ struct PersistenceController {
 
     func save() {
         let context = container.viewContext
-        if context.hasChanges {
-            do {
-                try context.save()
-            } catch {
-                let nsError = error as NSError
-                print("Core Data save error: \(nsError), \(nsError.userInfo)")
-            }
+        guard context.hasChanges else { return }
+        do {
+            try context.save()
+        } catch {
+            let nsError = error as NSError
+            print("Core Data save error: \(nsError), \(nsError.userInfo)")
         }
     }
 }
