@@ -268,7 +268,9 @@ private struct EntryEditor: View {
                     Button("Cancel") { cancel() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") { save() }.fontWeight(.semibold).disabled(!canSave)
+                    Button("Save") { save() }
+                        .font(.system(size: 17, weight: .semibold))
+                        .disabled(!canSave)
                 }
             }
             .alert("Discard changes?", isPresented: $showingDiscardAlert) {
@@ -299,3 +301,4 @@ private struct EntryEditor: View {
     }
 }
 
+warning: in the working copy of 'Nola/App/NolaApp.swift', LF will be replaced by CRLF the next time Git touches it
