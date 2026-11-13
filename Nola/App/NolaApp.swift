@@ -3,13 +3,42 @@ import CoreData
 
 @main
 struct NolaApp: App {
-    private let persistence = PersistenceController.shared
+    @StateObject private var persistence = PersistenceController.shared
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environment(\.managedObjectContext, persistence.container.viewContext)
+            Group {
+                if let error = persistence.startupError {
+                    PersistenceErrorView(message: error)
+                } else if persistence.isStoreReady {
+                    RootView()
+                        .environment(\.managedObjectContext, persistence.container.viewContext)
+                } else {
+                    ProgressView("Opening your journal…")
+                }
+            }
         }
+    }
+}
+
+private struct PersistenceErrorView: View {
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 34))
+                .foregroundColor(.orange)
+            Text("Nola couldn’t open your journal")
+                .font(.system(size: 22, weight: .semibold, design: .serif))
+                .multilineTextAlignment(.center)
+            Text(message)
+                .font(.system(size: 14))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .textSelection(.enabled)
+        }
+        .padding(28)
     }
 }
 
