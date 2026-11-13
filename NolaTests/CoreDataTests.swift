@@ -33,7 +33,7 @@ class CoreDataTests: XCTestCase {
         entry.updatedAt = Date()
         entry.entryType = "daily"
 
-        persistenceController.save()
+        try persistenceController.save()
 
         let request: NSFetchRequest<JournalEntry> = JournalEntry.fetchRequest()
         let entries = try context.fetch(request)
@@ -52,14 +52,14 @@ class CoreDataTests: XCTestCase {
         entry.updatedAt = Date()
         entry.entryType = "daily"
 
-        persistenceController.save()
+        try persistenceController.save()
 
         var request: NSFetchRequest<JournalEntry> = JournalEntry.fetchRequest()
         var entries = try context.fetch(request)
         XCTAssertEqual(entries.count, 1)
 
         context.delete(entries[0])
-        persistenceController.save()
+        try persistenceController.save()
 
         entries = try context.fetch(request)
         XCTAssertEqual(entries.count, 0)
@@ -74,7 +74,7 @@ class CoreDataTests: XCTestCase {
         entry.updatedAt = Date()
         entry.entryType = "brain_dump"
 
-        persistenceController.save()
+        try persistenceController.save()
 
         XCTAssertEqual(entry.safeTitle, "Untitled")
         XCTAssertEqual(entry.safeEntryType, "brain_dump")
