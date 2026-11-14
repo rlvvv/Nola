@@ -2,6 +2,7 @@ import SwiftUI
 import CoreData
 import UIKit
 import UniformTypeIdentifiers
+import Security
 
 @main
 struct NolaApp: App {
@@ -62,18 +63,413 @@ private struct RootView: View {
             JournalScreen()
                 .tabItem { Label("Journal", systemImage: "book.closed") }
                 .tag(1)
+            AICompanionScreen()
+                .tabItem { Label("Nola", systemImage: "bubble.left.and.bubble.right") }
+                .tag(2)
             InsightsScreen()
                 .tabItem { Label("Insights", systemImage: "sparkles") }
-                .tag(2)
+                .tag(3)
             ProgressScreen()
                 .tabItem { Label("Progress", systemImage: "chart.xyaxis.line") }
-                .tag(3)
+                .tag(4)
             SettingsScreen()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
-                .tag(4)
+                .tag(5)
         }
         .tint(NolaTheme.accent)
         .preferredColorScheme(theme == "dark" ? .dark : .light)
+    }
+}
+
+private struct AICompanionScreen: View {
+    @FetchRequest(fetchRequest: JournalEntry.sortedFetchRequest())
+    private var entries: FetchedResults<JournalEntry>
+    @FetchRequest(fetchRequest: MoodEntry.sortedFetchRequest())
+    private var moods: FetchedResults<MoodEntry>
+    @FetchRequest(fetchRequest: MemorableMoment.sortedFetchRequest())
+    private var moments: FetchedResults<MemorableMoment>
+    @StateObject private var chat = NolaChatStore()
+    @State private var draft = ""
+    @State private var showingConnectionSettings = false
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 0) {
+                if chat.messages.isEmpty {
+                    Spacer()
+                    Image(systemName: "bubble.left.and.bubble.right")
+                        .font(.system(size: 34))
+                        .foregroundColor(NolaTheme.accent)
+                    Text("A place to think out loud")
+                        .font(.system(size: 22, weight: .semibold, design: .serif))
+                        .foregroundColor(NolaTheme.text)
+                        .padding(.top, 12)
+                    Text("Write first, or request one question for today.")
+                        .font(.system(size: 15))
+                        .foregroundColor(NolaTheme.secondaryText)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 4)
+                    Spacer()
+                } else {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            LazyVStack(spacing: 12) {
+                                ForEach(chat.messages) { message in
+                                    ChatBubble(message: message)
+                                        .id(message.id)
+                                }
+                                if chat.isWaiting {
+                                    HStack {
+                                        ProgressView().tint(NolaTheme.accent)
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 4)
+                                }
+                            }
+                            .padding(16)
+                        }
+                        .onChange(of: chat.messages.count) { _ in
+                            if let last = chat.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
+                        }
+                    }
+                }
+
+                if let message = chat.statusMessage {
+                    Text(message)
+                        .font(.system(size: 13))
+                        .foregroundColor(NolaTheme.secondaryText)
+                        .padding(.horizontal, 16).padding(.bottom, 8)
+                }
+
+                HStack(spacing: 10) {
+                    TextField("Write what’s on your mind…", text: $draft)
+                        .padding(12)
+                        .background(NolaTheme.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(NolaTheme.cardBorder, lineWidth: 1))
+                        .disabled(chat.isWaiting || chat.isSessionClosed)
+                    Button { sendDraft() } label: {
+                        Image(systemName: "arrow.up")
+                            .font(.system(size: 16, weight: .bold))
+                            .frame(width: 42, height: 42)
+                            .background(NolaTheme.accent)
+                            .foregroundColor(.white)
+                            .clipShape(Circle())
+                    }
+                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chat.isWaiting || chat.isSessionClosed)
+                }
+                .padding(16)
+                .background(NolaTheme.raisedSurface)
+            }
+            .background(NolaTheme.background.ignoresSafeArea())
+            .navigationTitle("Nola")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Request question") { requestQuestion() }
+                        .disabled(chat.isWaiting || chat.isSessionClosed || chat.hasRequestedQuestionToday)
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button("End session") { chat.endSession() }
+                            .disabled(chat.messages.isEmpty || chat.isWaiting)
+                        Button("New session", role: .destructive) { chat.startNewSession() }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
+            }
+            .sheet(isPresented: $showingConnectionSettings) { VeniceSettingsScreen() }
+            .alert("Nola needs a Venice API key", isPresented: $chat.needsAPIKey) {
+                Button("Open Settings") { showingConnectionSettings = true }
+                Button("Not now", role: .cancel) { }
+            } message: {
+                Text("Add it in Settings → Venice connection.")
+            }
+        }
+        .navigationViewStyle(.stack)
+    }
+
+    private func sendDraft() {
+        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        draft = ""
+        chat.sendUserMessage(text, context: "")
+    }
+
+    private func requestQuestion() {
+        chat.requestOpeningQuestion(context: compactContext)
+    }
+
+    private var compactContext: String {
+        let journal = entries.prefix(8).map { "Journal [\($0.safeCreatedAt.formatted(date: .abbreviated, time: .omitted))]: \($0.safeTitle) — \($0.safeContent)" }
+        let mood = moods.prefix(8).map { "Mood [\($0.safeDate.formatted(date: .abbreviated, time: .shortened))]: \($0.safeMood); \($0.safeNote)" }
+        let moment = moments.prefix(6).map { "Moment [\($0.safeDate.formatted(date: .abbreviated, time: .omitted))]: \($0.safeTitle) — \($0.safeContent)" }
+        return (journal + mood + moment).joined(separator: "\n")
+    }
+}
+
+private struct ChatBubble: View {
+    let message: NolaChatMessage
+
+    var body: some View {
+        HStack {
+            if message.role == .assistant { Spacer(minLength: 28) }
+            Text(message.content)
+                .font(.system(size: 16))
+                .foregroundColor(message.role == .user ? .white : NolaTheme.text)
+                .padding(13)
+                .background(message.role == .user ? NolaTheme.accentStrong : NolaTheme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(message.role == .user ? Color.clear : NolaTheme.cardBorder, lineWidth: 1))
+            if message.role == .user { Spacer(minLength: 28) }
+        }
+    }
+}
+
+private enum ChatRole: String, Codable {
+    case user
+    case assistant
+}
+
+private struct NolaChatMessage: Codable, Identifiable {
+    let id: UUID
+    let role: ChatRole
+    let content: String
+    let createdAt: Date
+
+    init(role: ChatRole, content: String) {
+        self.id = UUID()
+        self.role = role
+        self.content = content
+        self.createdAt = Date()
+    }
+}
+
+private final class NolaChatStore: ObservableObject {
+    @Published private(set) var messages: [NolaChatMessage] = []
+    @Published private(set) var isWaiting = false
+    @Published private(set) var isSessionClosed = false
+    @Published var needsAPIKey = false
+    @Published private(set) var statusMessage: String?
+    private var questionCount = 0
+    private let messagesKey = "nola.ai.messages"
+    private let questionCountKey = "nola.ai.questionCount"
+    private let sessionClosedKey = "nola.ai.sessionClosed"
+    private let requestDateKey = "nola.ai.requestQuestionDate"
+
+    init() {
+        if let data = UserDefaults.standard.data(forKey: messagesKey),
+           let saved = try? JSONDecoder().decode([NolaChatMessage].self, from: data) {
+            messages = saved
+        }
+        questionCount = UserDefaults.standard.integer(forKey: questionCountKey)
+        isSessionClosed = UserDefaults.standard.bool(forKey: sessionClosedKey)
+    }
+
+    var hasRequestedQuestionToday: Bool {
+        guard let date = UserDefaults.standard.object(forKey: requestDateKey) as? Date else { return false }
+        return Calendar.current.isDateInToday(date)
+    }
+
+    func sendUserMessage(_ text: String, context: String) {
+        guard !isWaiting, !isSessionClosed else { return }
+        messages.append(NolaChatMessage(role: .user, content: text))
+        persist()
+        requestReply(extraContext: context)
+    }
+
+    func requestOpeningQuestion(context: String) {
+        guard !isWaiting, !isSessionClosed, !hasRequestedQuestionToday else { return }
+        UserDefaults.standard.set(Date(), forKey: requestDateKey)
+        requestReply(extraContext: context, openingQuestion: true)
+    }
+
+    func endSession() {
+        isSessionClosed = true
+        statusMessage = "Session ended. Start a new one anytime."
+        persist()
+    }
+
+    func startNewSession() {
+        messages = []
+        questionCount = 0
+        isSessionClosed = false
+        statusMessage = nil
+        persist()
+    }
+
+    private func requestReply(extraContext: String, openingQuestion: Bool = false) {
+        guard let key = VeniceKeychain.apiKey, !key.isEmpty else {
+            needsAPIKey = true
+            return
+        }
+        isWaiting = true
+        statusMessage = nil
+        Task {
+            do {
+                let reply = try await VeniceClient.reply(
+                    apiKey: key,
+                    messages: messages,
+                    context: extraContext,
+                    openingQuestion: openingQuestion,
+                    remainingQuestions: max(0, 7 - questionCount)
+                )
+                await MainActor.run {
+                    self.messages.append(NolaChatMessage(role: .assistant, content: reply))
+                    self.questionCount += 1
+                    self.isWaiting = false
+                    if self.questionCount >= 7 {
+                        self.isSessionClosed = true
+                        self.statusMessage = "Seven questions reached. Start a new session to continue."
+                    }
+                    self.persist()
+                }
+            } catch {
+                await MainActor.run {
+                    self.isWaiting = false
+                    self.statusMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func persist() {
+        if let data = try? JSONEncoder().encode(messages) {
+            UserDefaults.standard.set(data, forKey: messagesKey)
+        }
+        UserDefaults.standard.set(questionCount, forKey: questionCountKey)
+        UserDefaults.standard.set(isSessionClosed, forKey: sessionClosedKey)
+    }
+}
+
+private enum VeniceClient {
+    private static let endpoint = URL(string: "https://api.venice.ai/api/v1/chat/completions")!
+
+    static func reply(apiKey: String, messages: [NolaChatMessage], context: String, openingQuestion: Bool, remainingQuestions: Int) async throws -> String {
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        var apiMessages: [[String: String]] = [["role": "system", "content": systemPrompt(remainingQuestions: remainingQuestions)]]
+        if openingQuestion {
+            apiMessages.append(["role": "user", "content": "Use only the following relevant local context. Ask one open-ended, interesting question that helps me notice a useful pattern. Do not mention the context source.\n\n\(context)"])
+        } else {
+            apiMessages += messages.map { ["role": $0.role.rawValue, "content": $0.content] }
+        }
+
+        let body: [String: Any] = [
+            "model": "venice-uncensored",
+            "messages": apiMessages,
+            "temperature": 0.7,
+            "max_tokens": 80
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw VeniceError.invalidResponse }
+        guard (200..<300).contains(http.statusCode) else {
+            let detail = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? [String: Any]
+            throw VeniceError.requestFailed(detail?["message"] as? String ?? "Venice returned error \(http.statusCode).")
+        }
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let choices = object["choices"] as? [[String: Any]],
+              let first = choices.first,
+              let message = first["message"] as? [String: Any],
+              let content = message["content"] as? String,
+              !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw VeniceError.invalidResponse
+        }
+        return content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func systemPrompt(remainingQuestions: Int) -> String {
+        """
+        You are Nola, a private guided-journaling companion. Help the user understand their situation and reach their own answer. Ask exactly one challenging, open-ended question. Keep it between 4 and 10 words. Be concise, honest, and specific to what they said. Look for blind spots, excuses, patterns, and limiting beliefs, but do not claim certainty. Do not give generic advice, lecture, agree just to agree, disagree just to disagree, or make decisions for the user. If they hand you a decision, return it with a short question about what they already believe or want. For difficult thoughts, remain calm and direct rather than preachy. If they clearly state immediate danger to themselves or someone else, briefly encourage urgent real-world support. This session has \(remainingQuestions) AI question(s) remaining.
+        """
+    }
+}
+
+private enum VeniceError: LocalizedError {
+    case invalidResponse
+    case requestFailed(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidResponse: return "Nola couldn’t read Venice’s response."
+        case .requestFailed(let message): return message
+        }
+    }
+}
+
+private enum VeniceKeychain {
+    private static let service = "com.example.Nola.venice"
+    private static let account = "apiKey"
+
+    static var apiKey: String? {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account, kSecReturnData as String: true]
+        var item: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess,
+              let data = item as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    static func save(_ key: String) throws {
+        let data = Data(key.utf8)
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
+        SecItemDelete(query as CFDictionary)
+        let attributes = query.merging([kSecValueData as String: data]) { _, new in new }
+        guard SecItemAdd(attributes as CFDictionary, nil) == errSecSuccess else { throw VeniceError.requestFailed("Nola couldn’t securely save the Venice API key.") }
+    }
+
+    static func remove() {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service, kSecAttrAccount as String: account]
+        SecItemDelete(query as CFDictionary)
+    }
+}
+
+private struct VeniceSettingsScreen: View {
+    @Environment(\.presentationMode) private var presentationMode
+    @State private var apiKey = VeniceKeychain.apiKey ?? ""
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Venice API")) {
+                    SecureField("API key", text: $apiKey)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+                    Text("Stored securely on this device. Nola sends only the conversation and context needed for the request.")
+                        .font(.system(size: 13))
+                        .foregroundColor(NolaTheme.secondaryText)
+                }
+                if VeniceKeychain.apiKey != nil {
+                    Section {
+                        Button("Remove API key", role: .destructive) {
+                            VeniceKeychain.remove()
+                            apiKey = ""
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Venice connection")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) { Button("Close") { presentationMode.wrappedValue.dismiss() } }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        do {
+                            try VeniceKeychain.save(apiKey.trimmingCharacters(in: .whitespacesAndNewlines))
+                            presentationMode.wrappedValue.dismiss()
+                        } catch { errorMessage = error.localizedDescription }
+                    }
+                    .disabled(apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .alert("Couldn’t save API key", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+                Button("OK", role: .cancel) { }
+            } message: { Text(errorMessage ?? "") }
+        }
+        .navigationViewStyle(.stack)
     }
 }
 
@@ -139,6 +535,7 @@ private struct ProgressScreen: View {
 
 private struct SettingsScreen: View {
     @AppStorage("nola.theme") private var theme = "light"
+    @State private var showingVeniceSettings = false
 
     var body: some View {
         NavigationView {
@@ -150,6 +547,12 @@ private struct SettingsScreen: View {
                     }
                     .pickerStyle(SegmentedPickerStyle())
                 }
+                Section(header: Text("AI")) {
+                    Button("Venice connection") { showingVeniceSettings = true }
+                    Text(VeniceKeychain.apiKey == nil ? "Add your Venice API key to use Nola’s AI." : "Venice is configured on this device.")
+                        .font(.system(size: 14))
+                        .foregroundColor(NolaTheme.secondaryText)
+                }
                 Section {
                     Text("Your journal is stored on this device. Use Journal → ⋯ to export or import a backup.")
                         .font(.system(size: 14))
@@ -160,6 +563,9 @@ private struct SettingsScreen: View {
             .navigationTitle("Settings")
         }
         .navigationViewStyle(.stack)
+        .sheet(isPresented: $showingVeniceSettings) {
+            VeniceSettingsScreen()
+        }
     }
 }
 
