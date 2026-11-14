@@ -22,6 +22,10 @@ enum NolaTheme {
         light: UIColor(red: 0.40, green: 0.39, blue: 0.44, alpha: 1),
         dark: UIColor(red: 0.73, green: 0.71, blue: 0.78, alpha: 1)
     )
+    static let cardBorder = adaptive(
+        light: UIColor(red: 0.87, green: 0.86, blue: 0.83, alpha: 1),
+        dark: UIColor(red: 0.24, green: 0.23, blue: 0.27, alpha: 1)
+    )
     static let accent = adaptive(
         light: UIColor(red: 0.05, green: 0.35, blue: 0.27, alpha: 1),
         dark: UIColor(red: 0.30, green: 0.72, blue: 0.57, alpha: 1)
