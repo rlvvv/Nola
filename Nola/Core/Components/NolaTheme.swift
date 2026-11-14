@@ -23,13 +23,16 @@ enum NolaTheme {
         dark: UIColor(red: 0.73, green: 0.71, blue: 0.78, alpha: 1)
     )
     static let accent = adaptive(
-        light: UIColor(red: 0.42, green: 0.38, blue: 0.72, alpha: 1),
-        dark: UIColor(red: 0.72, green: 0.67, blue: 0.98, alpha: 1)
+        light: UIColor(red: 0.05, green: 0.35, blue: 0.27, alpha: 1),
+        dark: UIColor(red: 0.30, green: 0.72, blue: 0.57, alpha: 1)
     )
-    static let accentStrong = Color(red: 0.36, green: 0.32, blue: 0.65)
+    static let accentStrong = adaptive(
+        light: UIColor(red: 0.035, green: 0.27, blue: 0.21, alpha: 1),
+        dark: UIColor(red: 0.20, green: 0.56, blue: 0.42, alpha: 1)
+    )
     static let accentSoft = adaptive(
-        light: UIColor(red: 0.92, green: 0.90, blue: 0.97, alpha: 1),
-        dark: UIColor(red: 0.24, green: 0.21, blue: 0.34, alpha: 1)
+        light: UIColor(red: 0.87, green: 0.94, blue: 0.90, alpha: 1),
+        dark: UIColor(red: 0.13, green: 0.25, blue: 0.20, alpha: 1)
     )
     static let warmSoft = adaptive(
         light: UIColor(red: 0.93, green: 0.91, blue: 0.86, alpha: 1),
