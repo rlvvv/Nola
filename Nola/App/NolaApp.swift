@@ -1136,7 +1136,7 @@ private struct MoodCheckInSheet: Identifiable {
 }
 
 private struct MomentCard: View {
-    let moment: MemorableMoment
+    @ObservedObject var moment: MemorableMoment
     let onDelete: () -> Void
 
     var body: some View {
@@ -1270,11 +1270,11 @@ private struct MomentEditorView: View {
     }
 
     private func scheduleAutosave() {
-        guard hasContent else { return }
+        guard hasContent || moment != nil else { return }
         saveWorkItem?.cancel()
         let workItem = DispatchWorkItem { saveDraft() }
         saveWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
     }
 
     private func finish() {
@@ -1738,7 +1738,7 @@ private struct BackupDocumentPicker: UIViewControllerRepresentable {
 }
 
 private struct EntryCard: View {
-    let entry: JournalEntry
+    @ObservedObject var entry: JournalEntry
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -1867,7 +1867,7 @@ private struct EntryEditor: View {
         saveWorkItem?.cancel()
         let workItem = DispatchWorkItem { saveDraft() }
         saveWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12, execute: workItem)
     }
 
     private func saveDraft() {
