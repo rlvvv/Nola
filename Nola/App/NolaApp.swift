@@ -62,12 +62,78 @@ private struct RootView: View {
             JournalScreen()
                 .tabItem { Label("Journal", systemImage: "book.closed") }
                 .tag(1)
+            InsightsScreen()
+                .tabItem { Label("Insights", systemImage: "sparkles") }
+                .tag(2)
+            ProgressScreen()
+                .tabItem { Label("Progress", systemImage: "chart.xyaxis.line") }
+                .tag(3)
             SettingsScreen()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
-                .tag(2)
+                .tag(4)
         }
         .tint(NolaTheme.accent)
         .preferredColorScheme(theme == "dark" ? .dark : .light)
+    }
+}
+
+private struct InsightsScreen: View {
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 12) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 32))
+                    .foregroundColor(NolaTheme.accent)
+                Text("Insights are on the way")
+                    .font(.system(size: 20, weight: .semibold, design: .serif))
+                    .foregroundColor(NolaTheme.text)
+                Text("Personalized suggestions will appear here when Nola can ground them in your journal, moods, and moments.")
+                    .font(.system(size: 15))
+                    .foregroundColor(NolaTheme.secondaryText)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(30)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(NolaTheme.background)
+            .navigationTitle("Insights")
+        }
+        .navigationViewStyle(.stack)
+    }
+}
+
+private struct ProgressScreen: View {
+    @State private var period = "Week"
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Picker("Reflection period", selection: $period) {
+                        Text("Week").tag("Week")
+                        Text("Month").tag("Month")
+                    }
+                    .pickerStyle(SegmentedPickerStyle())
+
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Your reflections will appear here")
+                            .font(.system(size: 18, weight: .semibold, design: .serif))
+                            .foregroundColor(NolaTheme.text)
+                        Text("Nola will reflect on your mood, journaling, moments, and actions over time. No scores or streaks.")
+                            .font(.system(size: 14))
+                            .foregroundColor(NolaTheme.secondaryText)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(NolaTheme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(NolaTheme.cardBorder, lineWidth: 1))
+                }
+                .padding(20)
+            }
+            .background(NolaTheme.background)
+            .navigationTitle("Progress")
+        }
+        .navigationViewStyle(.stack)
     }
 }
 
@@ -134,7 +200,7 @@ private struct TodayScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
                     Text(selectedDate, formatter: Self.dayFormatter)
-                        .font(.system(size: 34, weight: .semibold, design: .serif))
+                        .font(.system(size: 34, weight: .bold, design: .default))
                         .foregroundColor(NolaTheme.text)
                     dateCarousel
                     moodSection
@@ -172,18 +238,11 @@ private struct TodayScreen: View {
 
     private var dateCarousel: some View {
         let dates = datesInSelectedWeek
-        return HStack(spacing: 5) {
-            Button(action: { moveSelectedWeek(by: -1) }) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 28, height: 58)
-            }
-            .accessibilityLabel("Previous week")
-
+        return HStack(spacing: 8) {
             ForEach(dates, id: \.self) { date in
                 let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
                 let isFuture = date > Calendar.current.startOfDay(for: Date())
-                Button { selectedDate = date } label: {
+                Button { selectDateWithoutAnimation(date) } label: {
                     VStack(spacing: 7) {
                         Text(date, formatter: Self.weekdayFormatter)
                             .font(.system(size: 10, weight: .medium))
@@ -202,17 +261,17 @@ private struct TodayScreen: View {
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
             }
 
-            Button(action: { moveSelectedWeek(by: 1) }) {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .frame(width: 28, height: 58)
-            }
-            .accessibilityLabel("Next week")
-            .disabled(weekStart(for: selectedDate) >= weekStart(for: Date()))
-            .opacity(weekStart(for: selectedDate) >= weekStart(for: Date()) ? 0.35 : 1)
         }
         .foregroundColor(NolaTheme.accent)
         .transaction { $0.animation = nil }
+        .animation(nil, value: selectedDate)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 20)
+                .onEnded { value in
+                    guard abs(value.translation.width) > abs(value.translation.height), abs(value.translation.width) > 45 else { return }
+                    moveSelectedWeek(by: value.translation.width < 0 ? 1 : -1)
+                }
+        )
     }
 
     private var datesInSelectedWeek: [Date] {
@@ -233,19 +292,27 @@ private struct TodayScreen: View {
     private func moveSelectedWeek(by amount: Int) {
         guard let newDate = Calendar.current.date(byAdding: .day, value: amount * 7, to: selectedDate) else { return }
         let today = Calendar.current.startOfDay(for: Date())
-        selectedDate = min(newDate, today)
+        selectDateWithoutAnimation(min(newDate, today))
+    }
+
+    private func selectDateWithoutAnimation(_ date: Date) {
+        var transaction = Transaction()
+        transaction.animation = nil
+        withTransaction(transaction) {
+            selectedDate = date
+        }
     }
 
     private var journalSection: some View {
         VStack(alignment: .leading, spacing: 13) {
             HStack {
-                Text(isShowingToday ? "Today's journals & notes" : "Journals & notes")
-                    .font(.system(size: 22, weight: .semibold, design: .serif))
+                Text("Journal")
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(NolaTheme.text)
                 Spacer()
                 Button { showingEntryEditor = true } label: {
                     Label("Add", systemImage: "plus")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                 }
                 .foregroundColor(NolaTheme.accent)
             }
@@ -274,19 +341,20 @@ private struct TodayScreen: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
         .background(NolaTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(NolaTheme.cardBorder, lineWidth: 1))
     }
 
     private var memorableMomentsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(isShowingToday ? "Today's moments" : "Moments")
-                    .font(.system(size: 22, weight: .semibold, design: .serif))
+                Text("Moments")
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(NolaTheme.text)
                 Spacer()
                 Button { showingMomentEditor = true } label: {
                     Label("Add", systemImage: "plus")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                 }
                 .foregroundColor(NolaTheme.accent)
             }
@@ -346,6 +414,7 @@ private struct TodayScreen: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(NolaTheme.surface)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(NolaTheme.cardBorder, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -353,15 +422,15 @@ private struct TodayScreen: View {
     private var moodSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(isShowingToday ? "Today's mood" : "Mood")
-                    .font(.system(size: 22, weight: .semibold, design: .serif))
+                Text("Mood")
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(NolaTheme.text)
                 Spacer()
                 Button {
                     moodSheet = MoodCheckInSheet(entry: nil, date: selectedDate)
                 } label: {
-                    Label("Check in", systemImage: "plus")
-                        .font(.system(size: 14, weight: .semibold))
+                    Label("Add", systemImage: "plus")
+                        .font(.system(size: 15, weight: .semibold))
                 }
                 .foregroundColor(NolaTheme.accent)
             }
@@ -430,15 +499,18 @@ private struct MomentCard: View {
                 Text(moment.safeContent)
                     .font(.system(size: 14)).foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("Delete", role: .destructive, action: onDelete)
-                    .font(.system(size: 12, weight: .medium))
-                    .padding(.top, 2)
             }
         }
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(NolaTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(NolaTheme.cardBorder, lineWidth: 1))
+        .simultaneousGesture(DragGesture(minimumDistance: 20).onEnded { value in
+            guard value.translation.width < -70, abs(value.translation.width) > abs(value.translation.height) else { return }
+            onDelete()
+        })
+        .accessibilityAction(named: Text("Delete moment"), onDelete)
     }
 
     private static let dateFormatter: DateFormatter = {
@@ -957,7 +1029,8 @@ private struct EntryCard: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(NolaTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 17, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(NolaTheme.cardBorder, lineWidth: 1))
     }
 
     private static let dateFormatter: DateFormatter = {
