@@ -866,6 +866,10 @@ private struct TodayScreen: View {
                 .padding(22)
             }
             .background(NolaTheme.background.ignoresSafeArea())
+            .transaction { transaction in
+                transaction.animation = nil
+                transaction.disablesAnimations = true
+            }
             .navigationBarHidden(true)
             .sheet(item: $moodSheet) { sheet in
                 MoodCheckInView(entry: sheet.entry, date: sheet.date)
@@ -1102,7 +1106,7 @@ private struct TodayScreen: View {
 
     private static let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE, MMMM d"
+        formatter.dateFormat = "EEE, MMMM d"
         return formatter
     }()
 
@@ -1182,6 +1186,10 @@ private struct MomentEditorView: View {
     @Environment(\.presentationMode) private var presentationMode
     @State private var title = ""
     @State private var content = ""
+    @State private var moment: MemorableMoment?
+    @State private var lastSavedTitle = ""
+    @State private var lastSavedContent = ""
+    @State private var saveWorkItem: DispatchWorkItem?
     @State private var showingSaveError = false
     @State private var saveError = ""
     private let date: Date
@@ -1190,8 +1198,16 @@ private struct MomentEditorView: View {
         self.date = date
     }
 
-    private var canSave: Bool {
-        !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    private var trimmedTitle: String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var hasContent: Bool {
+        !trimmedTitle.isEmpty || !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var hasUnsavedChanges: Bool {
+        trimmedTitle != lastSavedTitle || content != lastSavedContent
     }
 
     var body: some View {
@@ -1229,14 +1245,20 @@ private struct MomentEditorView: View {
             .background(NolaTheme.background.ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") { presentationMode.wrappedValue.dismiss() }
-                }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Save") { save() }
+                    Button("Done") { finish() }
                         .font(.system(size: 17, weight: .semibold))
-                        .disabled(!canSave)
                 }
+            }
+            .onChange(of: title) { _ in scheduleAutosave() }
+            .onChange(of: content) { _ in scheduleAutosave() }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+                saveWorkItem?.cancel()
+                saveDraft()
+            }
+            .onDisappear {
+                saveWorkItem?.cancel()
+                saveDraft()
             }
         }
         .navigationViewStyle(.stack)
@@ -1247,18 +1269,69 @@ private struct MomentEditorView: View {
         }
     }
 
-    private func save() {
-        let moment = MemorableMoment(context: context)
-        moment.id = UUID()
-        moment.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        moment.content = content.trimmingCharacters(in: .whitespacesAndNewlines)
-        let now = Calendar.current.dateComponents([.hour, .minute, .second], from: Date())
-        moment.date = Calendar.current.date(bySettingHour: now.hour ?? 12, minute: now.minute ?? 0, second: now.second ?? 0, of: date) ?? date
+    private func scheduleAutosave() {
+        guard hasContent else { return }
+        saveWorkItem?.cancel()
+        let workItem = DispatchWorkItem { saveDraft() }
+        saveWorkItem = workItem
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
+    }
+
+    private func finish() {
+        saveWorkItem?.cancel()
+        saveDraft()
+        if !showingSaveError {
+            presentationMode.wrappedValue.dismiss()
+        }
+    }
+
+    private func saveDraft() {
+        guard hasUnsavedChanges else { return }
+
+        if !hasContent {
+            guard let existing = moment else { return }
+            context.delete(existing)
+            do {
+                try PersistenceController.shared.save()
+                moment = nil
+                lastSavedTitle = ""
+                lastSavedContent = ""
+                showingSaveError = false
+            } catch {
+                context.rollback()
+                saveError = error.localizedDescription
+                showingSaveError = true
+            }
+            return
+        }
+
+        let target: MemorableMoment
+        if let existing = moment {
+            target = existing
+        } else {
+            target = MemorableMoment(context: context)
+            target.id = UUID()
+            let now = Calendar.current.dateComponents([.hour, .minute, .second], from: Date())
+            target.date = Calendar.current.date(
+                bySettingHour: now.hour ?? 12,
+                minute: now.minute ?? 0,
+                second: now.second ?? 0,
+                of: date
+            ) ?? date
+            moment = target
+        }
+
+        target.title = trimmedTitle
+        target.content = content
+
         do {
             try PersistenceController.shared.save()
-            presentationMode.wrappedValue.dismiss()
+            lastSavedTitle = trimmedTitle
+            lastSavedContent = content
+            showingSaveError = false
         } catch {
             context.rollback()
+            moment = nil
             saveError = error.localizedDescription
             showingSaveError = true
         }
@@ -1725,7 +1798,7 @@ private struct EntryEditor: View {
     private var trimmedTitle: String { title.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var trimmedContent: String { content.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var canSave: Bool { !trimmedTitle.isEmpty || !trimmedContent.isEmpty }
-    private var hasUnsavedChanges: Bool { trimmedTitle != lastSavedTitle || trimmedContent != lastSavedContent }
+    private var hasUnsavedChanges: Bool { trimmedTitle != lastSavedTitle || content != lastSavedContent }
 
     var body: some View {
         NavigationView {
@@ -1763,6 +1836,10 @@ private struct EntryEditor: View {
             }
             .onChange(of: title) { _ in scheduleAutosave() }
             .onChange(of: content) { _ in scheduleAutosave() }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+                saveWorkItem?.cancel()
+                saveDraft()
+            }
             .onDisappear {
                 saveWorkItem?.cancel()
                 saveDraft()
@@ -1786,15 +1863,15 @@ private struct EntryEditor: View {
     }
 
     private func scheduleAutosave() {
-        guard canSave else { return }
+        guard canSave || entry != nil else { return }
         saveWorkItem?.cancel()
         let workItem = DispatchWorkItem { saveDraft() }
         saveWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65, execute: workItem)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
     }
 
     private func saveDraft() {
-        guard canSave, hasUnsavedChanges else { return }
+        guard (canSave || entry != nil), hasUnsavedChanges else { return }
         let isNewEntry = entry == nil
         let target: JournalEntry
         if let existing = entry {
@@ -1807,12 +1884,12 @@ private struct EntryEditor: View {
             entry = target
         }
         target.title = trimmedTitle
-        target.content = trimmedContent
+        target.content = content
         target.updatedAt = Date()
         do {
             try PersistenceController.shared.save()
             lastSavedTitle = trimmedTitle
-            lastSavedContent = trimmedContent
+            lastSavedContent = content
             showingSaveError = false
         } catch {
             context.rollback()
