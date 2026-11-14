@@ -192,6 +192,10 @@ private struct AICompanionScreen: View {
     private func sendDraft() {
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
+        guard !(VeniceKeychain.apiKey ?? "").isEmpty else {
+            chat.needsAPIKey = true
+            return
+        }
         draft = ""
         chat.sendUserMessage(text, context: "")
     }
@@ -273,6 +277,10 @@ private final class NolaChatStore: ObservableObject {
 
     func sendUserMessage(_ text: String, context: String) {
         guard !isWaiting, !isSessionClosed else { return }
+        guard !(VeniceKeychain.apiKey ?? "").isEmpty else {
+            needsAPIKey = true
+            return
+        }
         messages.append(NolaChatMessage(role: .user, content: text))
         persist()
         requestReply(extraContext: context)
@@ -280,6 +288,10 @@ private final class NolaChatStore: ObservableObject {
 
     func requestOpeningQuestion(context: String) {
         guard !isWaiting, !isSessionClosed, !hasRequestedQuestionToday else { return }
+        guard !(VeniceKeychain.apiKey ?? "").isEmpty else {
+            needsAPIKey = true
+            return
+        }
         UserDefaults.standard.set(Date(), forKey: requestDateKey)
         requestReply(extraContext: context, openingQuestion: true)
     }
@@ -307,8 +319,10 @@ private final class NolaChatStore: ObservableObject {
         statusMessage = nil
         Task {
             do {
+                let selectedModel = UserDefaults.standard.string(forKey: "nola.ai.chatModel") ?? VeniceClient.defaultChatModel
                 let reply = try await VeniceClient.reply(
                     apiKey: key,
+                    model: selectedModel,
                     messages: messages,
                     context: extraContext,
                     openingQuestion: openingQuestion,
@@ -343,33 +357,72 @@ private final class NolaChatStore: ObservableObject {
 }
 
 private enum VeniceClient {
-    private static let endpoint = URL(string: "https://api.venice.ai/api/v1/chat/completions")!
+    private static let baseURL = URL(string: "https://api.venice.ai/api/v1")!
+    static let defaultChatModel = "e2ee-deepseek-v4-1-flash-1017-abliterated"
+    static let defaultInsightsModel = "claude-opus-5-5"
 
-    static func reply(apiKey: String, messages: [NolaChatMessage], context: String, openingQuestion: Bool, remainingQuestions: Int) async throws -> String {
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
+    static func reply(apiKey: String, model: String, messages: [NolaChatMessage], context: String, openingQuestion: Bool, remainingQuestions: Int) async throws -> String {
         var apiMessages: [[String: String]] = [["role": "system", "content": systemPrompt(remainingQuestions: remainingQuestions)]]
         if openingQuestion {
             apiMessages.append(["role": "user", "content": "Use only the following relevant local context. Ask one open-ended, interesting question that helps me notice a useful pattern. Do not mention the context source.\n\n\(context)"])
         } else {
             apiMessages += messages.map { ["role": $0.role.rawValue, "content": $0.content] }
         }
+        return try await complete(apiKey: apiKey, model: model, messages: apiMessages, maxTokens: 180)
+    }
 
+    static func generateInsights(apiKey: String, context: String) async throws -> String {
+        let prompt = """
+        You are Nola's personal reflection analyst. Use only the supplied journal, mood, and memorable-moment records. Identify at most 3 genuinely useful observations or recommendations. Be specific and cite dates or short paraphrases as evidence. Separate observed facts from interpretations. Do not diagnose, invent patterns, moralize, or recommend productivity for its own sake. If there is insufficient evidence, say so. Keep the response clear and concise, with headings: "What I notice", "What it might mean", and "One thing to consider".
+        """
+        return try await complete(
+            apiKey: apiKey,
+            model: defaultInsightsModel,
+            messages: [
+                ["role": "system", "content": prompt],
+                ["role": "user", "content": context]
+            ],
+            maxTokens: 1400
+        )
+    }
+
+    static func testConnection(apiKey: String) async throws -> String {
+        let url = baseURL.appendingPathComponent("api_keys").appendingPathComponent("rate_limits")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 20
+        request.setValue("Bearer \(normalizedKey(apiKey))", forHTTPHeaderField: "Authorization")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw VeniceError.invalidResponse }
+        guard (200..<300).contains(http.statusCode) else {
+            throw makeHTTPError(status: http.statusCode, data: data)
+        }
+        let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        let payload = object?["data"] as? [String: Any] ?? object ?? [:]
+        if let permitted = payload["accessPermitted"] as? Bool, !permitted {
+            throw VeniceError.requestFailed("Venice accepted the key, but this API key is not currently permitted to use inference. Check its limits and account balance.")
+        }
+        return "Connected. Venice accepted your API key."
+    }
+
+    private static func complete(apiKey: String, model: String, messages: [[String: String]], maxTokens: Int) async throws -> String {
+        let url = baseURL.appendingPathComponent("chat").appendingPathComponent("completions")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 90
+        request.setValue("Bearer \(normalizedKey(apiKey))", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let body: [String: Any] = [
-            "model": "venice-uncensored",
-            "messages": apiMessages,
+            "model": model,
+            "messages": messages,
             "temperature": 0.7,
-            "max_tokens": 80
+            "max_tokens": maxTokens
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw VeniceError.invalidResponse }
         guard (200..<300).contains(http.statusCode) else {
-            let detail = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? [String: Any]
-            throw VeniceError.requestFailed(detail?["message"] as? String ?? "Venice returned error \(http.statusCode).")
+            throw makeHTTPError(status: http.statusCode, data: data)
         }
         guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let choices = object["choices"] as? [[String: Any]],
@@ -380,6 +433,41 @@ private enum VeniceClient {
             throw VeniceError.invalidResponse
         }
         return content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func normalizedKey(_ raw: String) -> String {
+        var key = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if key.lowercased().hasPrefix("bearer ") {
+            key = String(key.dropFirst(7)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return key
+    }
+
+    private static func makeHTTPError(status: Int, data: Data) -> VeniceError {
+        let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        let rawError = object?["error"]
+        let detail: String?
+        if let errorObject = rawError as? [String: Any] {
+            detail = (errorObject["message"] as? String) ?? (errorObject["detail"] as? String) ?? (errorObject["code"] as? String)
+        } else {
+            detail = rawError as? String
+        }
+        let fallback: String
+        switch status {
+        case 401:
+            fallback = "Venice rejected this API key (401). Check that it is a valid, active Inference API key and that it was copied completely."
+        case 402:
+            fallback = "Venice could not authorize paid inference (402). Check the account balance and this key's spending limits."
+        case 403:
+            fallback = "Venice denied this request (403). Check the key permissions and model access."
+        case 404:
+            fallback = "Venice could not find the requested model or endpoint (404)."
+        case 429:
+            fallback = "Venice rate limit reached (429). Wait a little and try again."
+        default:
+            fallback = "Venice returned HTTP \(status)."
+        }
+        return .requestFailed(detail.map { "\(fallback) Details: \($0)" } ?? fallback)
     }
 
     private static func systemPrompt(remainingQuestions: Int) -> String {
@@ -430,24 +518,61 @@ private enum VeniceKeychain {
 private struct VeniceSettingsScreen: View {
     @Environment(\.presentationMode) private var presentationMode
     @State private var apiKey = VeniceKeychain.apiKey ?? ""
+    @AppStorage("nola.ai.chatModel") private var chatModel = VeniceClient.defaultChatModel
     @State private var errorMessage: String?
+    @State private var connectionMessage: String?
+    @State private var isTestingConnection = false
 
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("Venice API")) {
-                    SecureField("API key", text: $apiKey)
+                Section(header: Text("Venice API key")) {
+                    SecureField("Paste your API key", text: $apiKey)
                         .textInputAutocapitalization(.never)
                         .disableAutocorrection(true)
-                    Text("Stored securely on this device. Nola sends only the conversation and context needed for the request.")
+                    Button {
+                        testConnection()
+                    } label: {
+                        HStack {
+                            Text("Test connection")
+                            Spacer()
+                            if isTestingConnection { ProgressView() }
+                        }
+                    }
+                    .disabled(apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isTestingConnection)
+                    if let connectionMessage = connectionMessage {
+                        Text(connectionMessage)
+                            .font(.system(size: 13))
+                            .foregroundColor(connectionMessage.hasPrefix("Connected") ? .green : .red)
+                    }
+                    Text("Paste the key exactly as Venice issued it. Nola also removes an accidental “Bearer ” prefix and surrounding whitespace.")
                         .font(.system(size: 13))
                         .foregroundColor(NolaTheme.secondaryText)
                 }
+
+                Section(header: Text("Models")) {
+                    Picker("Daily chat", selection: $chatModel) {
+                        Text("DeepSeek V4.1 Flash 1017 Abliterated").tag(VeniceClient.defaultChatModel)
+                        Text("DeepSeek V4.1 Flash 1017").tag("deepseek-v4-1-flash-1017")
+                        Text("DeepSeek V4.1 Flash").tag("deepseek-v4-1-flash")
+                    }
+                    Text("Insights & Recommendations use Claude Opus 5.5.")
+                        .font(.system(size: 13))
+                        .foregroundColor(NolaTheme.secondaryText)
+                }
+
+                Section(header: Text("Privacy")) {
+                    Text("Your API key is stored in iOS Keychain. When you chat, the conversation is sent to Venice. When you explicitly request AI insights, selected journal, mood, and moment records are sent to Claude Opus 5.5 through Venice. Claude Opus 5.5 is listed as anonymized, not private. Do not send anything you are not comfortable sharing with the provider.")
+                        .font(.system(size: 13))
+                        .foregroundColor(NolaTheme.secondaryText)
+                }
+
                 if VeniceKeychain.apiKey != nil {
                     Section {
                         Button("Remove API key", role: .destructive) {
                             VeniceKeychain.remove()
                             apiKey = ""
+                            connectionMessage = "API key removed from this device."
                         }
                     }
                 }
@@ -458,7 +583,7 @@ private struct VeniceSettingsScreen: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
                         do {
-                            try VeniceKeychain.save(apiKey.trimmingCharacters(in: .whitespacesAndNewlines))
+                            try VeniceKeychain.save(apiKey)
                             presentationMode.wrappedValue.dismiss()
                         } catch { errorMessage = error.localizedDescription }
                     }
@@ -471,29 +596,154 @@ private struct VeniceSettingsScreen: View {
         }
         .navigationViewStyle(.stack)
     }
+
+    private func testConnection() {
+        isTestingConnection = true
+        connectionMessage = nil
+        Task {
+            do {
+                let result = try await VeniceClient.testConnection(apiKey: apiKey)
+                await MainActor.run {
+                    connectionMessage = result
+                    isTestingConnection = false
+                }
+            } catch {
+                await MainActor.run {
+                    connectionMessage = error.localizedDescription
+                    isTestingConnection = false
+                }
+            }
+        }
+    }
 }
 
 private struct InsightsScreen: View {
+    @FetchRequest(fetchRequest: JournalEntry.sortedFetchRequest())
+    private var entries: FetchedResults<JournalEntry>
+    @FetchRequest(fetchRequest: MoodEntry.sortedFetchRequest())
+    private var moods: FetchedResults<MoodEntry>
+    @FetchRequest(fetchRequest: MemorableMoment.sortedFetchRequest())
+    private var moments: FetchedResults<MemorableMoment>
+    @State private var aiInsight = ""
+    @State private var isGeneratingAIInsight = false
+    @State private var showingAIInsight = false
+    @State private var showingAIError = false
+    @State private var aiInsightError = ""
+    @State private var showingConnectionSettings = false
+
     var body: some View {
         NavigationView {
             VStack(spacing: 12) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 32))
                     .foregroundColor(NolaTheme.accent)
-                Text("Insights are on the way")
+                Text("Insights")
                     .font(.system(size: 20, weight: .semibold, design: .serif))
                     .foregroundColor(NolaTheme.text)
-                Text("Personalized suggestions will appear here when Nola can ground them in your journal, moods, and moments.")
+                Text("Ask Nola to look for patterns and useful recommendations grounded in your journal, moods, and moments.")
                     .font(.system(size: 15))
                     .foregroundColor(NolaTheme.secondaryText)
                     .multilineTextAlignment(.center)
+                Button {
+                    generateAIInsights()
+                } label: {
+                    HStack(spacing: 8) {
+                        if isGeneratingAIInsight { ProgressView().tint(.white) }
+                        else { Image(systemName: "sparkles") }
+                        Text(isGeneratingAIInsight ? "Analyzing…" : "Generate insights")
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 13)
+                    .background(NolaTheme.accentStrong)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .disabled(isGeneratingAIInsight)
+                Text("Uses Claude Opus 5.5 through Venice. Your selected journal and tracking records are sent for analysis only when you tap this button.")
+                    .font(.system(size: 12))
+                    .foregroundColor(NolaTheme.secondaryText)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 4)
             }
             .padding(30)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(NolaTheme.background)
             .navigationTitle("Insights")
+            .sheet(isPresented: $showingAIInsight) {
+                NavigationView {
+                    ScrollView {
+                        Text(aiInsight)
+                            .font(.system(size: 16))
+                            .foregroundColor(NolaTheme.text)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(22)
+                    }
+                    .background(NolaTheme.background.ignoresSafeArea())
+                    .navigationTitle("AI Insights")
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") { showingAIInsight = false }
+                        }
+                    }
+                }
+                .navigationViewStyle(.stack)
+            }
+            .sheet(isPresented: $showingConnectionSettings) {
+                VeniceSettingsScreen()
+            }
+            .alert("AI request failed", isPresented: $showingAIError) {
+                if aiInsightError.contains("API key") {
+                    Button("Open Settings") { showingConnectionSettings = true }
+                }
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(aiInsightError)
+            }
         }
         .navigationViewStyle(.stack)
+    }
+
+    private func generateAIInsights() {
+        guard let key = VeniceKeychain.apiKey, !key.isEmpty else {
+            aiInsightError = "Add your Venice API key in Settings before requesting AI insights."
+            showingAIError = true
+            return
+        }
+
+        let journalRecords = entries.prefix(12).map {
+            "Journal (\($0.safeCreatedAt.formatted(date: .abbreviated, time: .omitted))): \($0.safeTitle) — \($0.safeContent)"
+        }
+        let moodRecords = moods.prefix(20).map {
+            "Mood (\($0.safeDate.formatted(date: .abbreviated, time: .omitted))): \($0.safeMood). \($0.safeNote)"
+        }
+        let momentRecords = moments.prefix(20).map {
+            "Moment (\($0.safeDate.formatted(date: .abbreviated, time: .omitted))): \($0.safeTitle) — \($0.safeContent)"
+        }
+        let context = String((journalRecords + moodRecords + momentRecords).joined(separator: "\n\n").prefix(18000))
+        guard !context.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            aiInsightError = "Add a few journal entries, mood check-ins, or memorable moments first. There isn't enough information to analyze yet."
+            showingAIError = true
+            return
+        }
+
+        isGeneratingAIInsight = true
+        Task {
+            do {
+                let result = try await VeniceClient.generateInsights(apiKey: key, context: context)
+                await MainActor.run {
+                    aiInsight = result
+                    isGeneratingAIInsight = false
+                    showingAIInsight = true
+                }
+            } catch {
+                await MainActor.run {
+                    aiInsightError = error.localizedDescription
+                    isGeneratingAIInsight = false
+                    showingAIError = true
+                }
+            }
+        }
     }
 }
 
