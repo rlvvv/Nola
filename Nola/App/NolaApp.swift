@@ -117,8 +117,8 @@ private struct TodayScreen: View {
         entries.filter { Calendar.current.isDate($0.safeCreatedAt, inSameDayAs: selectedDate) }
     }
 
-    private var selectedDayMood: MoodEntry? {
-        moodEntries.first { Calendar.current.isDate($0.safeDate, inSameDayAs: selectedDate) }
+    private var selectedDayMoods: [MoodEntry] {
+        moodEntries.filter { Calendar.current.isDate($0.safeDate, inSameDayAs: selectedDate) }
     }
 
     private var selectedDayMoments: [MemorableMoment] {
@@ -212,6 +212,7 @@ private struct TodayScreen: View {
             .opacity(weekStart(for: selectedDate) >= weekStart(for: Date()) ? 0.35 : 1)
         }
         .foregroundColor(NolaTheme.accent)
+        .transaction { $0.animation = nil }
     }
 
     private var datesInSelectedWeek: [Date] {
@@ -320,21 +321,21 @@ private struct TodayScreen: View {
         }
     }
 
-    private var moodCheckInCard: some View {
+    private func moodCheckInCard(for moodEntry: MoodEntry) -> some View {
         Button {
-            moodSheet = MoodCheckInSheet(entry: selectedDayMood, date: selectedDate)
+            moodSheet = MoodCheckInSheet(entry: moodEntry, date: selectedDate)
         } label: {
             HStack(spacing: 14) {
-                Text(selectedDayMood.map { MoodChoice(rawValue: $0.safeMood)?.emoji ?? "🌿" } ?? "🌿")
+                Text(MoodChoice(rawValue: moodEntry.safeMood)?.emoji ?? "🌿")
                     .font(.system(size: 28))
                     .frame(width: 48, height: 48)
                     .background(NolaTheme.warmSoft)
                     .clipShape(Circle())
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(selectedDayMood.map { "Feeling \(MoodChoice(rawValue: $0.safeMood)?.label.lowercased() ?? "okay")" } ?? (isShowingToday ? "How are you feeling?" : "No mood check-in"))
+                    Text("Feeling \(MoodChoice(rawValue: moodEntry.safeMood)?.label.lowercased() ?? "okay")")
                         .font(.system(size: 16, weight: .semibold, design: .serif))
                         .foregroundColor(NolaTheme.text)
-                    Text(selectedDayMood == nil ? "Tap to check in" : "\(selectedDayMood!.safeDate, formatter: Self.timeFormatter) · Tap to update")
+                    Text("\(moodEntry.safeDate, formatter: Self.timeFormatter) · Tap to edit")
                         .font(.system(size: 13)).foregroundColor(NolaTheme.secondaryText)
                 }
                 Spacer()
@@ -351,10 +352,26 @@ private struct TodayScreen: View {
 
     private var moodSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(isShowingToday ? "Today's mood" : "Mood")
-                .font(.system(size: 22, weight: .semibold, design: .serif))
-                .foregroundColor(NolaTheme.text)
-            moodCheckInCard
+            HStack {
+                Text(isShowingToday ? "Today's mood" : "Mood")
+                    .font(.system(size: 22, weight: .semibold, design: .serif))
+                    .foregroundColor(NolaTheme.text)
+                Spacer()
+                Button {
+                    moodSheet = MoodCheckInSheet(entry: nil, date: selectedDate)
+                } label: {
+                    Label("Check in", systemImage: "plus")
+                        .font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundColor(NolaTheme.accent)
+            }
+            if selectedDayMoods.isEmpty {
+                emptyState("No mood check-in yet", detail: "Add one whenever you want to note how you feel.", icon: "face.smiling")
+            } else {
+                ForEach(selectedDayMoods, id: \.objectID) { moodEntry in
+                    moodCheckInCard(for: moodEntry)
+                }
+            }
         }
     }
 
@@ -961,7 +978,6 @@ private struct EntryEditor: View {
     @State private var entry: JournalEntry?
     @State private var lastSavedTitle: String
     @State private var lastSavedContent: String
-    @State private var saveStatus = "Saved"
     @State private var saveWorkItem: DispatchWorkItem?
     private let defaultDate: Date
 
@@ -1007,17 +1023,13 @@ private struct EntryEditor: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Close") { close() }
-                }
-                ToolbarItem(placement: .principal) {
-                    Text(saveStatus)
-                        .font(.system(size: 12))
-                        .foregroundColor(NolaTheme.secondaryText)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { close() }
-                        .font(.system(size: 17, weight: .semibold))
-                        .disabled(!canSave && entry == nil)
+                    Button { close() } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 17, weight: .semibold))
+                            .frame(width: 44, height: 44)
+                            .offset(y: 5)
+                    }
+                    .accessibilityLabel("Back")
                 }
             }
             .onChange(of: title) { _ in scheduleAutosave() }
@@ -1028,6 +1040,7 @@ private struct EntryEditor: View {
             }
         }
         .navigationViewStyle(.stack)
+        .navigationBarBackButtonHidden(true)
         .alert("Couldn’t save entry", isPresented: $showingSaveError) {
             Button("OK", role: .cancel) { showingSaveError = false }
         } message: {
@@ -1046,7 +1059,6 @@ private struct EntryEditor: View {
     private func scheduleAutosave() {
         guard canSave else { return }
         saveWorkItem?.cancel()
-        saveStatus = "Saving…"
         let workItem = DispatchWorkItem { saveDraft() }
         saveWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.65, execute: workItem)
@@ -1072,14 +1084,12 @@ private struct EntryEditor: View {
             try PersistenceController.shared.save()
             lastSavedTitle = trimmedTitle
             lastSavedContent = trimmedContent
-            saveStatus = "Saved"
             showingSaveError = false
         } catch {
             context.rollback()
             if isNewEntry { entry = nil }
             saveErrorMessage = error.localizedDescription
             showingSaveError = true
-            saveStatus = "Couldn’t save"
         }
     }
 }
