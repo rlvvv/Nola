@@ -827,6 +827,7 @@ private struct TodayScreen: View {
     @FetchRequest(fetchRequest: MemorableMoment.sortedFetchRequest())
     private var moments: FetchedResults<MemorableMoment>
     @State private var selectedDate = Calendar.current.startOfDay(for: Date())
+    @State private var swipeTransitionEdge: Edge = .trailing
     @State private var moodSheet: MoodCheckInSheet?
     @State private var showingEntryEditor = false
     @State private var showingMomentEditor = false
@@ -855,17 +856,32 @@ private struct TodayScreen: View {
         NavigationView {
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
-                    Text(selectedDate, formatter: Self.dayFormatter)
-                        .font(.system(size: 34, weight: .bold, design: .default))
-                        .foregroundColor(NolaTheme.text)
                     dateCarousel
-                    moodSection
-                    journalSection
-                    memorableMomentsSection
+                    VStack(alignment: .leading, spacing: 26) {
+                        Text(selectedDate, formatter: Self.dayFormatter)
+                            .font(.system(size: 34, weight: .bold, design: .default))
+                            .foregroundColor(NolaTheme.text)
+                        moodSection
+                        journalSection
+                        memorableMomentsSection
+                    }
+                    .id(selectedDate)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: swipeTransitionEdge),
+                        removal: .move(edge: swipeTransitionEdge == .trailing ? .leading : .trailing)
+                    ))
                 }
                 .padding(22)
             }
             .background(NolaTheme.background.ignoresSafeArea())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 30)
+                    .onEnded { value in
+                        guard abs(value.translation.width) > abs(value.translation.height),
+                              abs(value.translation.width) > 60 else { return }
+                        moveSelectedDay(by: value.translation.width < 0 ? 1 : -1)
+                    }
+            )
             .navigationBarHidden(true)
             .sheet(item: $moodSheet) { sheet in
                 MoodCheckInView(entry: sheet.entry, date: sheet.date)
@@ -921,13 +937,7 @@ private struct TodayScreen: View {
         .foregroundColor(NolaTheme.accent)
         .transaction { $0.animation = nil }
         .animation(nil, value: selectedDate)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 20)
-                .onEnded { value in
-                    guard abs(value.translation.width) > abs(value.translation.height), abs(value.translation.width) > 45 else { return }
-                    moveSelectedWeek(by: value.translation.width < 0 ? 1 : -1)
-                }
-        )
+
     }
 
     private var datesInSelectedWeek: [Date] {
@@ -945,10 +955,14 @@ private struct TodayScreen: View {
         return calendar.date(byAdding: .day, value: -offset, to: calendar.startOfDay(for: date)) ?? calendar.startOfDay(for: date)
     }
 
-    private func moveSelectedWeek(by amount: Int) {
-        guard let newDate = Calendar.current.date(byAdding: .day, value: amount * 7, to: selectedDate) else { return }
+    private func moveSelectedDay(by amount: Int) {
+        guard let newDate = Calendar.current.date(byAdding: .day, value: amount, to: selectedDate) else { return }
         let today = Calendar.current.startOfDay(for: Date())
-        selectDateWithoutAnimation(min(newDate, today))
+        guard newDate <= today else { return }
+        swipeTransitionEdge = amount > 0 ? .trailing : .leading
+        withAnimation(.easeInOut(duration: 0.28)) {
+            selectedDate = newDate
+        }
     }
 
     private func selectDateWithoutAnimation(_ date: Date) {
