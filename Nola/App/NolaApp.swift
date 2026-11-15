@@ -91,15 +91,19 @@ private struct AICompanionScreen: View {
     @StateObject private var chat = NolaChatStore()
     @State private var draft = ""
     @State private var showingConnectionSettings = false
+    @State private var showingHistory = false
 
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                HStack {
+                HStack(spacing: 10) {
                     Text("Companion")
                         .font(.system(size: 30, weight: .bold))
                         .foregroundColor(NolaTheme.text)
                     Spacer()
+                    if !chat.messages.isEmpty {
+                        GlassQuestionBadge(count: chat.displayedQuestionCount, total: NolaChatStore.maxQuestions)
+                    }
                     Button { requestQuestion() } label: {
                         Image(systemName: "sparkle")
                             .font(.system(size: 16, weight: .semibold))
@@ -108,12 +112,23 @@ private struct AICompanionScreen: View {
                             .background(.ultraThinMaterial, in: Circle())
                             .overlay(Circle().stroke(NolaTheme.cardBorder.opacity(0.7), lineWidth: 1))
                     }
-                    .disabled(chat.isWaiting || chat.isSessionClosed || chat.hasRequestedQuestionToday)
+                    .disabled(chat.isWaiting || chat.isSessionClosed || chat.isAwaitingFinalAnswer || chat.hasRequestedQuestionToday)
                     .accessibilityLabel("Request a question")
+                    Button { showingHistory = true } label: {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(NolaTheme.text)
+                            .frame(width: 42, height: 42)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .overlay(Circle().stroke(NolaTheme.cardBorder.opacity(0.7), lineWidth: 1))
+                    }
+                    .disabled(chat.isWaiting)
+                    .accessibilityLabel("Chat history")
                     Menu {
                         Button("End session") { chat.endSession() }
                             .disabled(chat.messages.isEmpty || chat.isWaiting)
                         Button("New session", role: .destructive) { chat.startNewSession() }
+                            .disabled(chat.isWaiting)
                     } label: {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 17, weight: .semibold))
@@ -140,7 +155,7 @@ private struct AICompanionScreen: View {
                 } else {
                     ScrollViewReader { proxy in
                         ScrollView {
-                            LazyVStack(spacing: 14) {
+                            VStack(spacing: 14) {
                                 ForEach(chat.messages) { message in
                                     ChatBubble(message: message).id(message.id)
                                 }
@@ -156,17 +171,27 @@ private struct AICompanionScreen: View {
                             .padding(.vertical, 16)
                         }
                         .onChange(of: chat.messages.count) { _ in
-                            if let last = chat.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
+                            guard let last = chat.messages.last else { return }
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                proxy.scrollTo(last.id, anchor: .bottom)
+                            }
                         }
                     }
                 }
 
                 if let message = chat.statusMessage {
-                    Text(message)
-                        .font(.system(size: 12))
-                        .foregroundColor(NolaTheme.secondaryText)
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 7)
+                    HStack(spacing: 10) {
+                        Text(message)
+                            .font(.system(size: 12))
+                            .foregroundColor(NolaTheme.secondaryText)
+                        if chat.canRetry {
+                            Button("Retry") { chat.retryLastRequest() }
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(NolaTheme.accent)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 7)
                 }
 
                 HStack(spacing: 10) {
@@ -175,7 +200,7 @@ private struct AICompanionScreen: View {
                         .foregroundColor(NolaTheme.text)
                         .padding(.leading, 17)
                         .padding(.vertical, 14)
-                        .disabled(chat.isWaiting || chat.isSessionClosed)
+                        .disabled(chat.isWaiting || chat.isSessionClosed || chat.canRetry)
                     Button { sendDraft() } label: {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 15, weight: .bold))
@@ -183,8 +208,8 @@ private struct AICompanionScreen: View {
                             .frame(width: 38, height: 38)
                             .background(NolaTheme.accentStrong, in: Circle())
                     }
-                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chat.isWaiting || chat.isSessionClosed)
-                    .opacity(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chat.isWaiting || chat.isSessionClosed ? 0.45 : 1)
+                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chat.isWaiting || chat.isSessionClosed || chat.canRetry)
+                    .opacity(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chat.isWaiting || chat.isSessionClosed || chat.canRetry ? 0.45 : 1)
                     .padding(.trailing, 7)
                 }
                 .background(.ultraThinMaterial, in: Capsule())
@@ -196,6 +221,7 @@ private struct AICompanionScreen: View {
             .background(NolaTheme.background.ignoresSafeArea())
             .navigationBarHidden(true)
             .sheet(isPresented: $showingConnectionSettings) { VeniceSettingsScreen() }
+            .sheet(isPresented: $showingHistory) { ChatHistoryScreen(chat: chat) }
             .alert("Nola needs a Venice API key", isPresented: $chat.needsAPIKey) {
                 Button("Open Settings") { showingConnectionSettings = true }
                 Button("Not now", role: .cancel) { }
@@ -266,17 +292,49 @@ private struct NolaChatMessage: Codable, Identifiable {
     }
 }
 
+private struct NolaChatSession: Codable, Identifiable {
+    let id: UUID
+    let startedAt: Date
+    let endedAt: Date
+    let messages: [NolaChatMessage]
+    let questionCount: Int
+    let isComplete: Bool
+
+    var preview: String {
+        if let userMessage = messages.first(where: { $0.role == .user }), !userMessage.content.isEmpty {
+            return userMessage.content
+        }
+        return messages.first?.content ?? ""
+    }
+}
+
 private final class NolaChatStore: ObservableObject {
+    static let maxQuestions = 7
+    private let historyLimit = 50
+
     @Published private(set) var messages: [NolaChatMessage] = []
     @Published private(set) var isWaiting = false
     @Published private(set) var isSessionClosed = false
+    @Published private(set) var isAwaitingFinalAnswer = false
+    @Published private(set) var history: [NolaChatSession] = []
+    @Published private(set) var canRetry = false
     @Published var needsAPIKey = false
     @Published private(set) var statusMessage: String?
+    private enum PendingRequest {
+        case question(context: String, openingQuestion: Bool)
+        case closing
+    }
+
+    private var pendingRequest: PendingRequest?
     private var questionCount = 0
+    private var didArchiveCurrentSession = false
     private let messagesKey = "nola.ai.messages"
     private let questionCountKey = "nola.ai.questionCount"
     private let sessionClosedKey = "nola.ai.sessionClosed"
     private let requestDateKey = "nola.ai.requestQuestionDate"
+    private let awaitingFinalAnswerKey = "nola.ai.awaitingFinalAnswer"
+    private let historyKey = "nola.ai.chatHistory"
+    private let archivedKey = "nola.ai.currentSessionArchived"
 
     init() {
         if let data = UserDefaults.standard.data(forKey: messagesKey),
@@ -285,11 +343,29 @@ private final class NolaChatStore: ObservableObject {
         }
         questionCount = UserDefaults.standard.integer(forKey: questionCountKey)
         isSessionClosed = UserDefaults.standard.bool(forKey: sessionClosedKey)
+        isAwaitingFinalAnswer = UserDefaults.standard.bool(forKey: awaitingFinalAnswerKey)
+        // Migrate sessions closed by the previous seven-question behavior:
+        // the seventh AI question was shown, but the user never got to answer it.
+        if isSessionClosed, questionCount >= Self.maxQuestions, messages.last?.role == .assistant {
+            isSessionClosed = false
+            isAwaitingFinalAnswer = true
+            UserDefaults.standard.set(false, forKey: sessionClosedKey)
+            UserDefaults.standard.set(true, forKey: awaitingFinalAnswerKey)
+        }
+        didArchiveCurrentSession = UserDefaults.standard.bool(forKey: archivedKey)
+        if let data = UserDefaults.standard.data(forKey: historyKey),
+           let saved = try? JSONDecoder().decode([NolaChatSession].self, from: data) {
+            history = saved
+        }
     }
 
     var hasRequestedQuestionToday: Bool {
         guard let date = UserDefaults.standard.object(forKey: requestDateKey) as? Date else { return false }
         return Calendar.current.isDateInToday(date)
+    }
+
+    var displayedQuestionCount: Int {
+        min(max(questionCount, messages.isEmpty ? 0 : 1), Self.maxQuestions)
     }
 
     func sendUserMessage(_ text: String, context: String) {
@@ -300,38 +376,75 @@ private final class NolaChatStore: ObservableObject {
         }
         messages.append(NolaChatMessage(role: .user, content: text))
         persist()
-        requestReply(extraContext: context)
+        if isAwaitingFinalAnswer || questionCount >= Self.maxQuestions {
+            requestClosing()
+        } else {
+            requestQuestionReply(extraContext: context)
+        }
     }
 
     func requestOpeningQuestion(context: String) {
-        guard !isWaiting, !isSessionClosed, !hasRequestedQuestionToday else { return }
+        guard !isWaiting, !isSessionClosed, !hasRequestedQuestionToday, questionCount < Self.maxQuestions else { return }
         guard !(VeniceKeychain.apiKey ?? "").isEmpty else {
             needsAPIKey = true
             return
         }
         UserDefaults.standard.set(Date(), forKey: requestDateKey)
-        requestReply(extraContext: context, openingQuestion: true)
+        requestQuestionReply(extraContext: context, openingQuestion: true)
     }
 
     func endSession() {
+        guard !messages.isEmpty else { return }
         isSessionClosed = true
+        isAwaitingFinalAnswer = false
         statusMessage = "Session ended. Start a new one anytime."
         persist()
+        archiveCurrentSession()
     }
 
     func startNewSession() {
+        archiveCurrentSession()
         messages = []
         questionCount = 0
         isSessionClosed = false
+        isAwaitingFinalAnswer = false
         statusMessage = nil
+        pendingRequest = nil
+        canRetry = false
+        didArchiveCurrentSession = false
         persist()
     }
 
-    private func requestReply(extraContext: String, openingQuestion: Bool = false) {
+    func retryLastRequest() {
+        guard !isWaiting, canRetry, let pendingRequest else { return }
+        canRetry = false
+        switch pendingRequest {
+        case .question(let context, let openingQuestion):
+            requestQuestionReply(extraContext: context, openingQuestion: openingQuestion)
+        case .closing:
+            requestClosing()
+        }
+    }
+
+    func deleteHistory(_ session: NolaChatSession) {
+        history.removeAll { $0.id == session.id }
+        persistHistory()
+    }
+
+    func clearHistory() {
+        history = []
+        persistHistory()
+    }
+
+    private func requestQuestionReply(extraContext: String, openingQuestion: Bool = false) {
         guard let key = VeniceKeychain.apiKey, !key.isEmpty else {
             needsAPIKey = true
             return
         }
+        let history = messages
+        let countAtRequest = questionCount
+        pendingRequest = .question(context: extraContext, openingQuestion: openingQuestion)
+        canRetry = false
         isWaiting = true
         statusMessage = nil
         Task {
@@ -340,28 +453,85 @@ private final class NolaChatStore: ObservableObject {
                 let reply = try await VeniceClient.reply(
                     apiKey: key,
                     model: selectedModel,
-                    messages: messages,
+                    messages: history,
                     context: extraContext,
                     openingQuestion: openingQuestion,
-                    remainingQuestions: max(0, 7 - questionCount)
+                    remainingQuestions: max(0, Self.maxQuestions - countAtRequest)
                 )
                 await MainActor.run {
                     self.messages.append(NolaChatMessage(role: .assistant, content: reply))
                     self.questionCount += 1
+                    self.pendingRequest = nil
+                    self.canRetry = false
                     self.isWaiting = false
-                    if self.questionCount >= 7 {
-                        self.isSessionClosed = true
-                        self.statusMessage = "Seven questions reached. Start a new session to continue."
+                    if self.questionCount >= Self.maxQuestions {
+                        self.isAwaitingFinalAnswer = true
+                        self.statusMessage = "Answer this last one — then I’ll close our session."
                     }
                     self.persist()
                 }
             } catch {
                 await MainActor.run {
                     self.isWaiting = false
+                    self.canRetry = true
                     self.statusMessage = error.localizedDescription
                 }
             }
         }
+    }
+
+    private func requestClosing() {
+        guard let key = VeniceKeychain.apiKey, !key.isEmpty else {
+            needsAPIKey = true
+            return
+        }
+        let history = messages
+        pendingRequest = .closing
+        canRetry = false
+        isWaiting = true
+        statusMessage = nil
+        Task {
+            do {
+                let selectedModel = UserDefaults.standard.string(forKey: "nola.ai.chatModel") ?? VeniceClient.defaultChatModel
+                let reply = try await VeniceClient.closing(apiKey: key, model: selectedModel, messages: history)
+                await MainActor.run {
+                    self.messages.append(NolaChatMessage(role: .assistant, content: reply))
+                    self.pendingRequest = nil
+                    self.canRetry = false
+                    self.isWaiting = false
+                    self.isAwaitingFinalAnswer = false
+                    self.isSessionClosed = true
+                    self.statusMessage = "Session complete."
+                    self.persist()
+                    self.archiveCurrentSession()
+                }
+            } catch {
+                await MainActor.run {
+                    self.isWaiting = false
+                    self.canRetry = true
+                    self.statusMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func archiveCurrentSession() {
+        guard !messages.isEmpty, !didArchiveCurrentSession else { return }
+        didArchiveCurrentSession = true
+        let session = NolaChatSession(
+            id: UUID(),
+            startedAt: messages.first?.createdAt ?? Date(),
+            endedAt: messages.last?.createdAt ?? Date(),
+            messages: messages,
+            questionCount: questionCount,
+            isComplete: isSessionClosed || questionCount >= Self.maxQuestions
+        )
+        history.insert(session, at: 0)
+        if history.count > historyLimit {
+            history = Array(history.prefix(historyLimit))
+        }
+        persist()
+        persistHistory()
     }
 
     private func persist() {
@@ -370,6 +540,170 @@ private final class NolaChatStore: ObservableObject {
         }
         UserDefaults.standard.set(questionCount, forKey: questionCountKey)
         UserDefaults.standard.set(isSessionClosed, forKey: sessionClosedKey)
+        UserDefaults.standard.set(isAwaitingFinalAnswer, forKey: awaitingFinalAnswerKey)
+        UserDefaults.standard.set(didArchiveCurrentSession, forKey: archivedKey)
+    }
+
+    private func persistHistory() {
+        if let data = try? JSONEncoder().encode(history) {
+            UserDefaults.standard.set(data, forKey: historyKey)
+        }
+    }
+}
+
+private struct GlassQuestionBadge: View {
+    let count: Int
+    let total: Int
+
+    var body: some View {
+        Text("\(count) / \(total)")
+            .font(.system(size: 13, weight: .semibold, design: .rounded))
+            .foregroundColor(NolaTheme.text)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(
+                Capsule()
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        Capsule().fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.30), Color.white.opacity(0.0)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                    )
+                    .overlay(Capsule().stroke(Color.white.opacity(0.45), lineWidth: 1))
+                    .shadow(color: Color.black.opacity(0.10), radius: 5, x: 0, y: 2)
+            )
+    }
+}
+
+private struct ChatHistoryScreen: View {
+    @Environment(\.presentationMode) private var presentationMode
+    @ObservedObject var chat: NolaChatStore
+    @State private var selected: NolaChatSession?
+    @State private var showingClearConfirmation = false
+
+    var body: some View {
+        NavigationView {
+            Group {
+                if chat.history.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 32))
+                            .foregroundColor(.secondary)
+                        Text("No past sessions yet")
+                            .font(.system(size: 20, weight: .semibold, design: .serif))
+                            .foregroundColor(NolaTheme.text)
+                        Text("Finished sessions will appear here.")
+                            .font(.system(size: 14))
+                            .foregroundColor(NolaTheme.secondaryText)
+                    }
+                    .padding(32)
+                } else {
+                    List {
+                        ForEach(chat.history) { session in
+                            Button { selected = session } label: {
+                                HistoryRow(session: session)
+                            }
+                            .buttonStyle(.plain)
+                            .listRowBackground(Color.clear)
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) { chat.deleteHistory(session) } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                        }
+                    }
+                    .listStyle(.plain)
+                }
+            }
+            .background(NolaTheme.background)
+            .navigationTitle("Chat history")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") { presentationMode.wrappedValue.dismiss() }
+                }
+                if !chat.history.isEmpty {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button("Clear", role: .destructive) { showingClearConfirmation = true }
+                    }
+                }
+            }
+            .confirmationDialog("Clear all chat history?", isPresented: $showingClearConfirmation, titleVisibility: .visible) {
+                Button("Clear History", role: .destructive) { chat.clearHistory() }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Past sessions will be removed from this device. Your journal is not affected.")
+            }
+        }
+        .navigationViewStyle(.stack)
+        .sheet(item: $selected) { session in
+            ChatTranscriptScreen(session: session)
+        }
+    }
+}
+
+private struct HistoryRow: View {
+    let session: NolaChatSession
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(session.startedAt, formatter: Self.dateFormatter)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(NolaTheme.text)
+                Spacer()
+                Text("\(min(max(session.questionCount, 1), NolaChatStore.maxQuestions)) / \(NolaChatStore.maxQuestions) questions")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(NolaTheme.secondaryText)
+            }
+            Text(session.preview)
+                .font(.system(size: 14))
+                .foregroundColor(NolaTheme.secondaryText)
+                .lineLimit(2)
+        }
+        .padding(15)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(NolaTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(NolaTheme.cardBorder, lineWidth: 1))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+    }
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
+}
+
+private struct ChatTranscriptScreen: View {
+    @Environment(\.presentationMode) private var presentationMode
+    let session: NolaChatSession
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 14) {
+                    ForEach(session.messages) { message in
+                        ChatBubble(message: message)
+                    }
+                }
+                .padding(18)
+            }
+            .background(NolaTheme.background.ignoresSafeArea())
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Close") { presentationMode.wrappedValue.dismiss() }
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
     }
 }
 
@@ -381,26 +715,47 @@ private enum VeniceClient {
     static func reply(apiKey: String, model: String, messages: [NolaChatMessage], context: String, openingQuestion: Bool, remainingQuestions: Int) async throws -> String {
         var apiMessages: [[String: String]] = [["role": "system", "content": systemPrompt(remainingQuestions: remainingQuestions)]]
         if openingQuestion {
-            apiMessages.append(["role": "user", "content": "Use only the following relevant local context. Ask one open-ended, interesting question that helps me notice a useful pattern. Do not mention the context source.\n\n\(context)"])
+            apiMessages.append(["role": "user", "content": openingQuestionPrompt(context: context)])
         } else {
             apiMessages += messages.map { ["role": $0.role.rawValue, "content": $0.content] }
         }
-        return try await complete(apiKey: apiKey, model: model, messages: apiMessages, maxTokens: 180)
+        let primary = requestBody(model: model, messages: apiMessages, maxTokens: 1200, stripThinking: true, disableThinking: false)
+        let object = try await complete(apiKey: apiKey, body: primary)
+        if let content = content(from: object) { return content }
+
+        // Reasoning models sometimes return an empty content block. Retry once
+        // with thinking disabled so the user never has to send a second message.
+        let fallback = requestBody(model: model, messages: apiMessages, maxTokens: 1200, stripThinking: true, disableThinking: true)
+        let fallbackObject = try await complete(apiKey: apiKey, body: fallback)
+        if let content = content(from: fallbackObject) { return content }
+        throw VeniceError.invalidResponse
+    }
+
+    static func closing(apiKey: String, model: String, messages: [NolaChatMessage]) async throws -> String {
+        var apiMessages: [[String: String]] = [["role": "system", "content": closingPrompt()]]
+        apiMessages += messages.map { ["role": $0.role.rawValue, "content": $0.content] }
+        let primary = requestBody(model: model, messages: apiMessages, maxTokens: 800, stripThinking: true, disableThinking: false)
+        let object = try await complete(apiKey: apiKey, body: primary)
+        if let content = content(from: object) { return content }
+
+        let fallback = requestBody(model: model, messages: apiMessages, maxTokens: 800, stripThinking: true, disableThinking: true)
+        let fallbackObject = try await complete(apiKey: apiKey, body: fallback)
+        if let content = content(from: fallbackObject) { return content }
+        throw VeniceError.invalidResponse
     }
 
     static func generateInsights(apiKey: String, context: String) async throws -> String {
         let prompt = """
         You are Nola's personal reflection analyst. Use only the supplied journal, mood, and memorable-moment records. Identify at most 3 genuinely useful observations or recommendations. Be specific and cite dates or short paraphrases as evidence. Separate observed facts from interpretations. Do not diagnose, invent patterns, moralize, or recommend productivity for its own sake. If there is insufficient evidence, say so. Keep the response clear and concise, with headings: "What I notice", "What it might mean", and "One thing to consider".
         """
-        return try await complete(
-            apiKey: apiKey,
-            model: defaultInsightsModel,
-            messages: [
-                ["role": "system", "content": prompt],
-                ["role": "user", "content": context]
-            ],
-            maxTokens: 1400
-        )
+        let messages: [[String: String]] = [
+            ["role": "system", "content": prompt],
+            ["role": "user", "content": context]
+        ]
+        let body = requestBody(model: defaultInsightsModel, messages: messages, maxTokens: 4096, stripThinking: true, disableThinking: false)
+        let object = try await complete(apiKey: apiKey, body: body)
+        guard let content = content(from: object) else { throw VeniceError.invalidResponse }
+        return content
     }
 
     static func testConnection(apiKey: String) async throws -> String {
@@ -422,34 +777,82 @@ private enum VeniceClient {
         return "Connected. Venice accepted your API key."
     }
 
-    private static func complete(apiKey: String, model: String, messages: [[String: String]], maxTokens: Int) async throws -> String {
-        let url = baseURL.appendingPathComponent("chat").appendingPathComponent("completions")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.timeoutInterval = 90
-        request.setValue("Bearer \(normalizedKey(apiKey))", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let body: [String: Any] = [
+    private static func requestBody(model: String, messages: [[String: String]], maxTokens: Int, stripThinking: Bool, disableThinking: Bool) -> [String: Any] {
+        [
             "model": model,
             "messages": messages,
             "temperature": 0.7,
-            "max_tokens": maxTokens
+            "max_tokens": maxTokens,
+            "max_completion_tokens": maxTokens,
+            "venice_parameters": [
+                "strip_thinking_response": stripThinking,
+                "disable_thinking": disableThinking
+            ]
         ]
+    }
+
+    private static func complete(apiKey: String, body: [String: Any]) async throws -> [String: Any] {
+        let url = baseURL.appendingPathComponent("chat").appendingPathComponent("completions")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 120
+        request.setValue("Bearer \(normalizedKey(apiKey))", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw VeniceError.invalidResponse }
         guard (200..<300).contains(http.statusCode) else {
             throw makeHTTPError(status: http.statusCode, data: data)
         }
-        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let choices = object["choices"] as? [[String: Any]],
-              let first = choices.first,
-              let message = first["message"] as? [String: Any],
-              let content = message["content"] as? String,
-              !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw VeniceError.invalidResponse
+        let object: Any
+        do {
+            object = try JSONSerialization.jsonObject(with: data)
+        } catch {
+            throw VeniceError.unexpectedResponse(rawSnippet(from: data) ?? "Venice returned data that wasn’t JSON.")
         }
-        return content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let dictionary = object as? [String: Any] else {
+            throw VeniceError.unexpectedResponse(rawSnippet(from: data) ?? "Venice returned an unexpected response.")
+        }
+        if dictionary["choices"] == nil, let message = errorMessage(from: dictionary) {
+            throw VeniceError.requestFailed(message)
+        }
+        return dictionary
+    }
+
+    private static func content(from object: [String: Any]) -> String? {
+        guard let choices = object["choices"] as? [[String: Any]], let first = choices.first else { return nil }
+        if let message = first["message"] as? [String: Any] {
+            if let content = normalizedContent(message["content"]) { return content }
+            if let content = normalizedContent(message["reasoning_content"]) { return content }
+        }
+        return normalizedContent(first["text"])
+    }
+
+    private static func normalizedContent(_ value: Any?) -> String? {
+        if let string = value as? String {
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }
+        if let parts = value as? [[String: Any]] {
+            let text = parts.compactMap { $0["text"] as? String }.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+            return text.isEmpty ? nil : text
+        }
+        return nil
+    }
+
+    private static func errorMessage(from object: [String: Any]) -> String? {
+        guard let error = object["error"] else { return nil }
+        if let errorObject = error as? [String: Any] {
+            return (errorObject["message"] as? String) ?? (errorObject["detail"] as? String) ?? (errorObject["code"] as? String) ?? (errorObject["type"] as? String)
+        }
+        return error as? String
+    }
+
+    private static func rawSnippet(from data: Data) -> String? {
+        guard let string = String(data: data, encoding: .utf8) else { return nil }
+        let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return String(trimmed.prefix(200))
     }
 
     private static func normalizedKey(_ raw: String) -> String {
@@ -462,15 +865,11 @@ private enum VeniceClient {
 
     private static func makeHTTPError(status: Int, data: Data) -> VeniceError {
         let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-        let rawError = object?["error"]
-        let detail: String?
-        if let errorObject = rawError as? [String: Any] {
-            detail = (errorObject["message"] as? String) ?? (errorObject["detail"] as? String) ?? (errorObject["code"] as? String)
-        } else {
-            detail = rawError as? String
-        }
+        let detail = errorMessage(from: object ?? [:]) ?? rawSnippet(from: data)
         let fallback: String
         switch status {
+        case 400:
+            fallback = "Venice rejected this request (400). Check the model name and request format."
         case 401:
             fallback = "Venice rejected this API key (401). Check that it is a valid, active Inference API key and that it was copied completely."
         case 402:
@@ -487,20 +886,36 @@ private enum VeniceClient {
         return .requestFailed(detail.map { "\(fallback) Details: \($0)" } ?? fallback)
     }
 
+    private static func openingQuestionPrompt(context: String) -> String {
+        "Use only the following relevant local context. Ask one open-ended, interesting question that helps me notice a useful pattern. Do not mention the context source.\n\n\(context)"
+    }
+
+    private static func closingPrompt() -> String {
+        """
+        You are Nola, a private guided-journaling companion. The user has just given their seventh and final answer, so this session is ending. Write one short closing of no more than 90 words, in plain prose with no headings or bullet points, containing:
+        1. What you heard — briefly and accurately reflect the heart of what the user shared.
+        2. The one tension worth sitting with — name a single tension, contradiction, or open loop you noticed, without resolving it.
+        3. Either a question for the user to sit with themselves, or one small suggested offline action. Not a verdict, not advice, not a solution.
+        Do not ask a new question that requires a reply. Do not label, diagnose, or judge the user. Do not give a verdict. Be warm, calm, and direct.
+        """
+    }
+
     private static func systemPrompt(remainingQuestions: Int) -> String {
         """
-        You are Nola, a private guided-journaling companion. Help the user understand their situation and reach their own answer. Ask exactly one challenging, open-ended question. Keep it between 4 and 10 words. Be concise, honest, and specific to what they said. Look for blind spots, excuses, patterns, and limiting beliefs, but do not claim certainty. Do not give generic advice, lecture, agree just to agree, disagree just to disagree, or make decisions for the user. If they hand you a decision, return it with a short question about what they already believe or want. For difficult thoughts, remain calm and direct rather than preachy. If they clearly state immediate danger to themselves or someone else, briefly encourage urgent real-world support. This session has \(remainingQuestions) AI question(s) remaining.
+        You are Nola, a private guided-journaling companion. Help the user understand their situation and reach their own answer. Ask exactly one challenging, open-ended question. Keep it between 4 and 10 words. Be concise, honest, and specific to what they said. Look for blind spots, excuses, patterns, and limiting beliefs, but do not claim certainty. Do not give generic advice, lecture, agree just to agree, disagree just to disagree, or make decisions for the user. If they hand you a decision, return it with a short question about what they already believe or want. For difficult thoughts, remain calm and direct rather than preachy. If they clearly state immediate danger to themselves or someone else, briefly encourage urgent real-world support. Always reply with text, never an empty response. This session has \(remainingQuestions) AI question(s) remaining.
         """
     }
 }
 
 private enum VeniceError: LocalizedError {
     case invalidResponse
+    case unexpectedResponse(String)
     case requestFailed(String)
 
     var errorDescription: String? {
         switch self {
         case .invalidResponse: return "Nola couldn’t read Venice’s response."
+        case .unexpectedResponse(let detail): return "Nola couldn’t read Venice’s response. \(detail)"
         case .requestFailed(let message): return message
         }
     }
