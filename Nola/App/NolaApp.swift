@@ -95,35 +95,65 @@ private struct AICompanionScreen: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
+                HStack {
+                    Text("Companion")
+                        .font(.system(size: 30, weight: .bold))
+                        .foregroundColor(NolaTheme.text)
+                    Spacer()
+                    Button { requestQuestion() } label: {
+                        Image(systemName: "sparkle")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(NolaTheme.accent)
+                            .frame(width: 42, height: 42)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .overlay(Circle().stroke(NolaTheme.cardBorder.opacity(0.7), lineWidth: 1))
+                    }
+                    .disabled(chat.isWaiting || chat.isSessionClosed || chat.hasRequestedQuestionToday)
+                    .accessibilityLabel("Request a question")
+                    Menu {
+                        Button("End session") { chat.endSession() }
+                            .disabled(chat.messages.isEmpty || chat.isWaiting)
+                        Button("New session", role: .destructive) { chat.startNewSession() }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(NolaTheme.text)
+                            .frame(width: 42, height: 42)
+                            .background(.ultraThinMaterial, in: Circle())
+                            .overlay(Circle().stroke(NolaTheme.cardBorder.opacity(0.7), lineWidth: 1))
+                    }
+                }
+                .padding(.horizontal, 22)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
+
                 if chat.messages.isEmpty {
                     Spacer()
                     Image(systemName: "bubble.left.and.bubble.right")
-                        .font(.system(size: 34))
-                        .foregroundColor(NolaTheme.accent)
-
-                    Text("Write first, or request one question for today.")
-                        .font(.system(size: 15))
+                        .font(.system(size: 30, weight: .light))
+                        .foregroundColor(NolaTheme.accent.opacity(0.85))
+                        .padding(.bottom, 12)
+                    Text("Start with what's on your mind.")
+                        .font(.system(size: 16, weight: .medium))
                         .foregroundColor(NolaTheme.secondaryText)
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 4)
                     Spacer()
                 } else {
                     ScrollViewReader { proxy in
                         ScrollView {
-                            LazyVStack(spacing: 12) {
+                            LazyVStack(spacing: 14) {
                                 ForEach(chat.messages) { message in
-                                    ChatBubble(message: message)
-                                        .id(message.id)
+                                    ChatBubble(message: message).id(message.id)
                                 }
                                 if chat.isWaiting {
                                     HStack {
                                         ProgressView().tint(NolaTheme.accent)
                                         Spacer()
                                     }
-                                    .padding(.horizontal, 4)
+                                    .padding(.horizontal, 6)
                                 }
                             }
-                            .padding(16)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 16)
                         }
                         .onChange(of: chat.messages.count) { _ in
                             if let last = chat.messages.last { proxy.scrollTo(last.id, anchor: .bottom) }
@@ -133,48 +163,38 @@ private struct AICompanionScreen: View {
 
                 if let message = chat.statusMessage {
                     Text(message)
-                        .font(.system(size: 13))
+                        .font(.system(size: 12))
                         .foregroundColor(NolaTheme.secondaryText)
-                        .padding(.horizontal, 16).padding(.bottom, 8)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 7)
                 }
 
                 HStack(spacing: 10) {
-                    TextField("Write what’s on your mind…", text: $draft)
-                        .padding(12)
-                        .background(NolaTheme.surface)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(NolaTheme.cardBorder, lineWidth: 1))
+                    TextField("Message...", text: $draft)
+                        .font(.system(size: 16))
+                        .foregroundColor(NolaTheme.text)
+                        .padding(.leading, 17)
+                        .padding(.vertical, 14)
                         .disabled(chat.isWaiting || chat.isSessionClosed)
                     Button { sendDraft() } label: {
                         Image(systemName: "arrow.up")
-                            .font(.system(size: 16, weight: .bold))
-                            .frame(width: 42, height: 42)
-                            .background(NolaTheme.accent)
+                            .font(.system(size: 15, weight: .bold))
                             .foregroundColor(.white)
-                            .clipShape(Circle())
+                            .frame(width: 38, height: 38)
+                            .background(NolaTheme.accentStrong, in: Circle())
                     }
                     .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chat.isWaiting || chat.isSessionClosed)
+                    .opacity(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chat.isWaiting || chat.isSessionClosed ? 0.45 : 1)
+                    .padding(.trailing, 7)
                 }
-                .padding(16)
-                .background(NolaTheme.raisedSurface)
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay(Capsule().stroke(NolaTheme.cardBorder.opacity(0.8), lineWidth: 1))
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+                .padding(.bottom, 12)
             }
             .background(NolaTheme.background.ignoresSafeArea())
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Request question") { requestQuestion() }
-                        .disabled(chat.isWaiting || chat.isSessionClosed || chat.hasRequestedQuestionToday)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button("End session") { chat.endSession() }
-                            .disabled(chat.messages.isEmpty || chat.isWaiting)
-                        Button("New session", role: .destructive) { chat.startNewSession() }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                    }
-                }
-            }
+            .navigationBarHidden(true)
             .sheet(isPresented: $showingConnectionSettings) { VeniceSettingsScreen() }
             .alert("Nola needs a Venice API key", isPresented: $chat.needsAPIKey) {
                 Button("Open Settings") { showingConnectionSettings = true }
@@ -739,12 +759,18 @@ private struct TodayScreen: View {
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(alignment: .leading, spacing: 26) {
-                    dateCarousel
-                    VStack(alignment: .leading, spacing: 26) {
-                        Text(selectedDate, formatter: Self.dayFormatter)
-                            .font(.system(size: 34, weight: .bold, design: .default))
+                VStack(alignment: .leading, spacing: 24) {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text("Today")
+                            .font(.system(size: 30, weight: .bold))
                             .foregroundColor(NolaTheme.text)
+                        Spacer()
+                        Text(selectedDate, formatter: Self.dayFormatter)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(NolaTheme.secondaryText)
+                    }
+                    dateCarousel
+                    VStack(alignment: .leading, spacing: 25) {
                         moodSection
                         journalSection
                         memorableMomentsSection
@@ -806,9 +832,11 @@ private struct TodayScreen: View {
                             .font(.system(size: 16, weight: .semibold))
                     }
                     .foregroundColor(isSelected ? Color.white : NolaTheme.text)
-                    .frame(maxWidth: .infinity, minHeight: 56)
-                    .background(isSelected ? NolaTheme.accentStrong : NolaTheme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .frame(maxWidth: .infinity, minHeight: 58)
+                    .background(isSelected ? NolaTheme.accentStrong : NolaTheme.surface.opacity(0.72))
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(isSelected ? Color.clear : NolaTheme.cardBorder.opacity(0.65), lineWidth: 1))
                 }
                 .buttonStyle(.plain)
                 .disabled(isFuture)
@@ -861,7 +889,7 @@ private struct TodayScreen: View {
         VStack(alignment: .leading, spacing: 13) {
             HStack {
                 Text("Journal")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(NolaTheme.text)
                 Spacer()
                 Button { showingEntryEditor = true } label: {
@@ -903,7 +931,7 @@ private struct TodayScreen: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Moments")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(NolaTheme.text)
                 Spacer()
                 Button { showingMomentEditor = true } label: {
@@ -977,7 +1005,7 @@ private struct TodayScreen: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("Mood")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 18, weight: .semibold))
                     .foregroundColor(NolaTheme.text)
                 Spacer()
                 Button {
