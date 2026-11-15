@@ -1777,6 +1777,7 @@ private struct EntryEditor: View {
     @State private var lastSavedTitle: String
     @State private var lastSavedContent: String
     @State private var saveWorkItem: DispatchWorkItem?
+    @State private var didLoadExistingEntry = false
     private let defaultDate: Date
 
     init(entry: JournalEntry?, defaultDate: Date = Date()) {
@@ -1830,6 +1831,7 @@ private struct EntryEditor: View {
                     .accessibilityLabel("Back")
                 }
             }
+            .onAppear { loadLatestEntryIfNeeded() }
             .onChange(of: title) { _ in scheduleAutosave() }
             .onChange(of: content) { _ in scheduleAutosave() }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
@@ -1850,6 +1852,21 @@ private struct EntryEditor: View {
         }
     }
 
+    private func loadLatestEntryIfNeeded() {
+        guard !didLoadExistingEntry else { return }
+        didLoadExistingEntry = true
+
+        // Today uses an eager VStack, so NavigationLink can construct this
+        // destination before the user opens it. Refresh @State from Core Data
+        // when the destination actually appears.
+        guard let existing = entry else { return }
+        let latestTitle = existing.safeTitle == "Untitled" ? "" : existing.safeTitle
+        let latestContent = existing.safeContent
+        title = latestTitle
+        content = latestContent
+        lastSavedTitle = latestTitle
+        lastSavedContent = latestContent
+    }
     private func close() {
         saveWorkItem?.cancel()
         saveDraft()
