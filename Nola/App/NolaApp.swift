@@ -866,10 +866,6 @@ private struct TodayScreen: View {
                 .padding(22)
             }
             .background(NolaTheme.background.ignoresSafeArea())
-            .transaction { transaction in
-                transaction.animation = nil
-                transaction.disablesAnimations = true
-            }
             .navigationBarHidden(true)
             .sheet(item: $moodSheet) { sheet in
                 MoodCheckInView(entry: sheet.entry, date: sheet.date)
