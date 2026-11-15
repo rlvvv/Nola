@@ -1292,7 +1292,7 @@ private struct MomentEditorView: View {
             guard let existing = moment else { return }
             context.delete(existing)
             do {
-                try PersistenceController.shared.save()
+                if context.hasChanges { try context.save() }
                 moment = nil
                 lastSavedTitle = ""
                 lastSavedContent = ""
@@ -1325,7 +1325,7 @@ private struct MomentEditorView: View {
         target.content = content
 
         do {
-            try PersistenceController.shared.save()
+            if context.hasChanges { try context.save() }
             lastSavedTitle = trimmedTitle
             lastSavedContent = content
             showingSaveError = false
@@ -1887,7 +1887,7 @@ private struct EntryEditor: View {
         target.content = content
         target.updatedAt = Date()
         do {
-            try PersistenceController.shared.save()
+            if context.hasChanges { try context.save() }
             lastSavedTitle = trimmedTitle
             lastSavedContent = content
             showingSaveError = false
