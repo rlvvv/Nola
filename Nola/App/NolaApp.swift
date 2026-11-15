@@ -625,10 +625,9 @@ private struct ChatHistoryScreen: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Close") { presentationMode.wrappedValue.dismiss() }
                 }
-                if !chat.history.isEmpty {
-                    ToolbarItem(placement: .navigationBarTrailing) {
-                        Button("Clear", role: .destructive) { showingClearConfirmation = true }
-                    }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Clear", role: .destructive) { showingClearConfirmation = true }
+                        .disabled(chat.history.isEmpty)
                 }
             }
             .confirmationDialog("Clear all chat history?", isPresented: $showingClearConfirmation, titleVisibility: .visible) {
