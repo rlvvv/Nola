@@ -64,7 +64,7 @@ private struct RootView: View {
                 .tabItem { Label("Journal", systemImage: "book.closed") }
                 .tag(1)
             AICompanionScreen()
-                .tabItem { Label("Nola", systemImage: "bubble.left.and.bubble.right") }
+                .tabItem { Label("Companion", systemImage: "bubble.left.and.bubble.right") }
                 .tag(2)
             InsightsScreen()
                 .tabItem { Label("Insights", systemImage: "sparkles") }
@@ -100,10 +100,7 @@ private struct AICompanionScreen: View {
                     Image(systemName: "bubble.left.and.bubble.right")
                         .font(.system(size: 34))
                         .foregroundColor(NolaTheme.accent)
-                    Text("A place to think out loud")
-                        .font(.system(size: 22, weight: .semibold, design: .serif))
-                        .foregroundColor(NolaTheme.text)
-                        .padding(.top, 12)
+
                     Text("Write first, or request one question for today.")
                         .font(.system(size: 15))
                         .foregroundColor(NolaTheme.secondaryText)
@@ -162,7 +159,7 @@ private struct AICompanionScreen: View {
                 .background(NolaTheme.raisedSurface)
             }
             .background(NolaTheme.background.ignoresSafeArea())
-            .navigationTitle("Nola")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Request question") { requestQuestion() }
@@ -618,135 +615,22 @@ private struct VeniceSettingsScreen: View {
 }
 
 private struct InsightsScreen: View {
-    @FetchRequest(fetchRequest: JournalEntry.sortedFetchRequest())
-    private var entries: FetchedResults<JournalEntry>
-    @FetchRequest(fetchRequest: MoodEntry.sortedFetchRequest())
-    private var moods: FetchedResults<MoodEntry>
-    @FetchRequest(fetchRequest: MemorableMoment.sortedFetchRequest())
-    private var moments: FetchedResults<MemorableMoment>
-    @State private var aiInsight = ""
-    @State private var isGeneratingAIInsight = false
-    @State private var showingAIInsight = false
-    @State private var showingAIError = false
-    @State private var aiInsightError = ""
-    @State private var showingConnectionSettings = false
-
     var body: some View {
         NavigationView {
-            VStack(spacing: 12) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 32))
-                    .foregroundColor(NolaTheme.accent)
+            VStack(alignment: .leading, spacing: 0) {
                 Text("Insights")
-                    .font(.system(size: 20, weight: .semibold, design: .serif))
+                    .font(.system(size: 34, weight: .bold, design: .default))
                     .foregroundColor(NolaTheme.text)
-                Text("Ask Nola to look for patterns and useful recommendations grounded in your journal, moods, and moments.")
-                    .font(.system(size: 15))
-                    .foregroundColor(NolaTheme.secondaryText)
-                    .multilineTextAlignment(.center)
-                Button {
-                    generateAIInsights()
-                } label: {
-                    HStack(spacing: 8) {
-                        if isGeneratingAIInsight { ProgressView().tint(.white) }
-                        else { Image(systemName: "sparkles") }
-                        Text(isGeneratingAIInsight ? "Analyzing…" : "Generate insights")
-                    }
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 13)
-                    .background(NolaTheme.accentStrong)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                }
-                .disabled(isGeneratingAIInsight)
-                Text("Uses Claude Opus 5.5 through Venice. Your selected journal and tracking records are sent for analysis only when you tap this button.")
-                    .font(.system(size: 12))
-                    .foregroundColor(NolaTheme.secondaryText)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 4)
+                Spacer()
             }
-            .padding(30)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(NolaTheme.background)
-            .navigationTitle("Insights")
-            .sheet(isPresented: $showingAIInsight) {
-                NavigationView {
-                    ScrollView {
-                        Text(aiInsight)
-                            .font(.system(size: 16))
-                            .foregroundColor(NolaTheme.text)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(22)
-                    }
-                    .background(NolaTheme.background.ignoresSafeArea())
-                    .navigationTitle("AI Insights")
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
-                            Button("Done") { showingAIInsight = false }
-                        }
-                    }
-                }
-                .navigationViewStyle(.stack)
-            }
-            .sheet(isPresented: $showingConnectionSettings) {
-                VeniceSettingsScreen()
-            }
-            .alert("AI request failed", isPresented: $showingAIError) {
-                if aiInsightError.contains("API key") {
-                    Button("Open Settings") { showingConnectionSettings = true }
-                }
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(aiInsightError)
-            }
+            .padding(22)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(NolaTheme.background.ignoresSafeArea())
+            .navigationBarHidden(true)
         }
         .navigationViewStyle(.stack)
     }
-
-    private func generateAIInsights() {
-        guard let key = VeniceKeychain.apiKey, !key.isEmpty else {
-            aiInsightError = "Add your Venice API key in Settings before requesting AI insights."
-            showingAIError = true
-            return
-        }
-
-        let journalRecords = entries.prefix(12).map {
-            "Journal (\($0.safeCreatedAt.formatted(date: .abbreviated, time: .omitted))): \($0.safeTitle) — \($0.safeContent)"
-        }
-        let moodRecords = moods.prefix(20).map {
-            "Mood (\($0.safeDate.formatted(date: .abbreviated, time: .omitted))): \($0.safeMood). \($0.safeNote)"
-        }
-        let momentRecords = moments.prefix(20).map {
-            "Moment (\($0.safeDate.formatted(date: .abbreviated, time: .omitted))): \($0.safeTitle) — \($0.safeContent)"
-        }
-        let context = String((journalRecords + moodRecords + momentRecords).joined(separator: "\n\n").prefix(18000))
-        guard !context.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            aiInsightError = "Add a few journal entries, mood check-ins, or memorable moments first. There isn't enough information to analyze yet."
-            showingAIError = true
-            return
-        }
-
-        isGeneratingAIInsight = true
-        Task {
-            do {
-                let result = try await VeniceClient.generateInsights(apiKey: key, context: context)
-                await MainActor.run {
-                    aiInsight = result
-                    isGeneratingAIInsight = false
-                    showingAIInsight = true
-                }
-            } catch {
-                await MainActor.run {
-                    aiInsightError = error.localizedDescription
-                    isGeneratingAIInsight = false
-                    showingAIError = true
-                }
-            }
-        }
-    }
 }
-
 private struct ProgressScreen: View {
     @State private var period = "Week"
 
@@ -1557,7 +1441,7 @@ private struct JournalScreen: View {
                     VStack(spacing: 12) {
                         Image(systemName: searchText.isEmpty ? "book.closed" : "magnifyingglass")
                             .font(.system(size: 34)).foregroundColor(.secondary)
-                        Text(searchText.isEmpty ? "Your journal starts here" : "No matching entries")
+                        Text(searchText.isEmpty ? "No entries yet" : "No matching entries")
                             .font(.system(size: 21, weight: .semibold, design: .serif))
                         Text(searchText.isEmpty
                              ? "Write your first entry and it will be saved on this device."
