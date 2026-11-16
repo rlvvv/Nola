@@ -82,6 +82,7 @@ private struct RootView: View {
 }
 
 private struct AICompanionScreen: View {
+    @Environment(\.scenePhase) private var scenePhase
     @FetchRequest(fetchRequest: JournalEntry.sortedFetchRequest())
     private var entries: FetchedResults<JournalEntry>
     @FetchRequest(fetchRequest: MoodEntry.sortedFetchRequest())
@@ -102,7 +103,7 @@ private struct AICompanionScreen: View {
                         .foregroundColor(NolaTheme.text)
                     Spacer()
                     if !chat.messages.isEmpty {
-                        GlassQuestionBadge(count: chat.displayedQuestionCount, total: NolaChatStore.maxQuestions)
+                        GlassQuestionBadge(count: chat.displayedQuestionCount, total: chat.questionLimit)
                     }
                     Button { requestQuestion() } label: {
                         Image(systemName: "sparkle")
@@ -112,7 +113,7 @@ private struct AICompanionScreen: View {
                             .background(.ultraThinMaterial, in: Circle())
                             .overlay(Circle().stroke(NolaTheme.cardBorder.opacity(0.7), lineWidth: 1))
                     }
-                    .disabled(chat.isWaiting || chat.isSessionClosed || chat.isAwaitingFinalAnswer || chat.hasRequestedQuestionToday)
+                    .disabled(!chat.canRequestOpeningQuestion)
                     .accessibilityLabel("Request a question")
                     Button { showingHistory = true } label: {
                         Image(systemName: "clock.arrow.circlepath")
@@ -127,8 +128,6 @@ private struct AICompanionScreen: View {
                     Menu {
                         Button("End session") { chat.endSession() }
                             .disabled(chat.messages.isEmpty || chat.isWaiting)
-                        Button("New session", role: .destructive) { chat.startNewSession() }
-                            .disabled(chat.isWaiting)
                     } label: {
                         Image(systemName: "ellipsis")
                             .font(.system(size: 17, weight: .semibold))
@@ -148,9 +147,53 @@ private struct AICompanionScreen: View {
                         .font(.system(size: 30, weight: .light))
                         .foregroundColor(NolaTheme.accent.opacity(0.85))
                         .padding(.bottom, 12)
-                    Text("Start with what's on your mind.")
+                    Text(chat.hasUsedSessionToday
+                             ? "You’ve already had today’s conversation."
+                             : "Choose the kind of conversation you need.")
                         .font(.system(size: 16, weight: .medium))
                         .foregroundColor(NolaTheme.secondaryText)
+                    if !chat.hasUsedSessionToday {
+                        VStack(spacing: 10) {
+                            Button { requestQuestion(sessionType: .daily) } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Regular conversation")
+                                            .font(.system(size: 15, weight: .semibold))
+                                        Text("7 questions · Available every day")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(NolaTheme.secondaryText)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "arrow.right")
+                                }
+                                .foregroundColor(NolaTheme.text)
+                                .padding(15)
+                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                            }
+                            Button { requestQuestion(sessionType: .weekly) } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text("Deep-dive conversation")
+                                            .font(.system(size: 15, weight: .semibold))
+                                        Text(chat.canStartWeeklySession
+                                             ? "15 questions · Available once a week"
+                                             : "15 questions · Already used this week")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(NolaTheme.secondaryText)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "sparkles")
+                                }
+                                .foregroundColor(NolaTheme.text)
+                                .padding(15)
+                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                                .opacity(chat.canStartWeeklySession ? 1 : 0.45)
+                            }
+                            .disabled(!chat.canStartWeeklySession)
+                        }
+                        .padding(.horizontal, 24)
+                        .padding(.top, 18)
+                    }
                     Spacer()
                 } else {
                     ScrollViewReader { proxy in
@@ -200,7 +243,7 @@ private struct AICompanionScreen: View {
                         .foregroundColor(NolaTheme.text)
                         .padding(.leading, 17)
                         .padding(.vertical, 14)
-                        .disabled(chat.isWaiting || chat.isSessionClosed || chat.canRetry)
+                        .disabled(!chat.canSendMessage)
                     Button { sendDraft() } label: {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 15, weight: .bold))
@@ -208,8 +251,8 @@ private struct AICompanionScreen: View {
                             .frame(width: 38, height: 38)
                             .background(NolaTheme.accentStrong, in: Circle())
                     }
-                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chat.isWaiting || chat.isSessionClosed || chat.canRetry)
-                    .opacity(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || chat.isWaiting || chat.isSessionClosed || chat.canRetry ? 0.45 : 1)
+                    .disabled(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !chat.canSendMessage)
+                    .opacity(draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !chat.canSendMessage ? 0.45 : 1)
                     .padding(.trailing, 7)
                 }
                 .background(.ultraThinMaterial, in: Capsule())
@@ -230,6 +273,16 @@ private struct AICompanionScreen: View {
             }
         }
         .navigationViewStyle(.stack)
+        .onAppear { chat.refreshForCurrentDay() }
+        .onChange(of: scenePhase) { phase in
+            if phase == .active { chat.refreshForCurrentDay() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+            chat.refreshForCurrentDay()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NolaChatStore.backupImportedNotification)) { _ in
+            chat.reloadFromDefaults()
+        }
     }
 
     private func sendDraft() {
@@ -243,8 +296,8 @@ private struct AICompanionScreen: View {
         chat.sendUserMessage(text, context: "")
     }
 
-    private func requestQuestion() {
-        chat.requestOpeningQuestion(context: compactContext)
+    private func requestQuestion(sessionType: NolaChatSessionType = .daily) {
+        chat.requestOpeningQuestion(context: compactContext, sessionType: sessionType)
     }
 
     private var compactContext: String {
@@ -284,12 +337,19 @@ private struct NolaChatMessage: Codable, Identifiable {
     let content: String
     let createdAt: Date
 
-    init(role: ChatRole, content: String) {
-        self.id = UUID()
+    init(id: UUID = UUID(), role: ChatRole, content: String, createdAt: Date = Date()) {
+        self.id = id
         self.role = role
         self.content = content
-        self.createdAt = Date()
+        self.createdAt = createdAt
     }
+}
+
+private enum NolaChatSessionType: String, Codable, Equatable {
+    case daily
+    case weekly
+
+    var questionLimit: Int { self == .weekly ? 15 : 7 }
 }
 
 private struct NolaChatSession: Codable, Identifiable {
@@ -299,6 +359,11 @@ private struct NolaChatSession: Codable, Identifiable {
     let messages: [NolaChatMessage]
     let questionCount: Int
     let isComplete: Bool
+    let sessionType: String?
+
+    var questionLimit: Int {
+        NolaChatSessionType(rawValue: sessionType ?? "")?.questionLimit ?? 7
+    }
 
     var preview: String {
         if let userMessage = messages.first(where: { $0.role == .user }), !userMessage.content.isEmpty {
@@ -310,7 +375,7 @@ private struct NolaChatSession: Codable, Identifiable {
 
 private final class NolaChatStore: ObservableObject {
     static let maxQuestions = 7
-    private let historyLimit = 50
+    private static let historyLimit = 50
 
     @Published private(set) var messages: [NolaChatMessage] = []
     @Published private(set) var isWaiting = false
@@ -320,6 +385,8 @@ private final class NolaChatStore: ObservableObject {
     @Published private(set) var canRetry = false
     @Published var needsAPIKey = false
     @Published private(set) var statusMessage: String?
+    @Published private(set) var currentSessionType: NolaChatSessionType = .daily
+
     private enum PendingRequest {
         case question(context: String, openingQuestion: Bool)
         case closing
@@ -328,6 +395,7 @@ private final class NolaChatStore: ObservableObject {
     private var pendingRequest: PendingRequest?
     private var questionCount = 0
     private var didArchiveCurrentSession = false
+
     private let messagesKey = "nola.ai.messages"
     private let questionCountKey = "nola.ai.questionCount"
     private let sessionClosedKey = "nola.ai.sessionClosed"
@@ -335,28 +403,62 @@ private final class NolaChatStore: ObservableObject {
     private let awaitingFinalAnswerKey = "nola.ai.awaitingFinalAnswer"
     private let historyKey = "nola.ai.chatHistory"
     private let archivedKey = "nola.ai.currentSessionArchived"
+    private let dailySessionDateKey = "nola.ai.dailySessionDate"
+    private let weeklySessionWeekKey = "nola.ai.weeklySessionWeek"
+    private let currentSessionTypeKey = "nola.ai.currentSessionType"
+    private var requestedSessionType: NolaChatSessionType = .daily
+    private let sessionStartedAtKey = "nola.ai.sessionStartedAt"
+    private let currentSessionIDKey = "nola.ai.currentSessionID"
 
     init() {
-        if let data = UserDefaults.standard.data(forKey: messagesKey),
+        let defaults = UserDefaults.standard
+        if let data = defaults.data(forKey: messagesKey),
            let saved = try? JSONDecoder().decode([NolaChatMessage].self, from: data) {
             messages = saved
         }
-        questionCount = UserDefaults.standard.integer(forKey: questionCountKey)
-        isSessionClosed = UserDefaults.standard.bool(forKey: sessionClosedKey)
-        isAwaitingFinalAnswer = UserDefaults.standard.bool(forKey: awaitingFinalAnswerKey)
-        // Migrate sessions closed by the previous seven-question behavior:
-        // the seventh AI question was shown, but the user never got to answer it.
-        if isSessionClosed, questionCount >= Self.maxQuestions, messages.last?.role == .assistant {
-            isSessionClosed = false
-            isAwaitingFinalAnswer = true
-            UserDefaults.standard.set(false, forKey: sessionClosedKey)
-            UserDefaults.standard.set(true, forKey: awaitingFinalAnswerKey)
+        questionCount = defaults.integer(forKey: questionCountKey)
+        isSessionClosed = defaults.bool(forKey: sessionClosedKey)
+        isAwaitingFinalAnswer = defaults.bool(forKey: awaitingFinalAnswerKey)
+        didArchiveCurrentSession = defaults.bool(forKey: archivedKey)
+        if let rawType = defaults.string(forKey: currentSessionTypeKey),
+           let savedType = NolaChatSessionType(rawValue: rawType) {
+            currentSessionType = savedType
         }
-        didArchiveCurrentSession = UserDefaults.standard.bool(forKey: archivedKey)
-        if let data = UserDefaults.standard.data(forKey: historyKey),
+        if let data = defaults.data(forKey: historyKey),
            let saved = try? JSONDecoder().decode([NolaChatSession].self, from: data) {
             history = saved
         }
+
+        migrateLegacySessionState()
+
+        // Preserve the previous seven-question migration: the final question
+        // still receives the user's answer before Nola writes its closing.
+        if isSessionClosed,
+           currentSessionType == .daily,
+           !didArchiveCurrentSession,
+           questionCount == Self.maxQuestions,
+           messages.last?.role == .assistant {
+            isSessionClosed = false
+            isAwaitingFinalAnswer = true
+            defaults.set(false, forKey: sessionClosedKey)
+            defaults.set(true, forKey: awaitingFinalAnswerKey)
+        }
+        refreshForCurrentDay()
+        if isAwaitingFinalAnswer, !isSessionClosed, messages.last?.role == .user {
+            pendingRequest = .closing
+            canRetry = true
+            statusMessage = "Your closing reflection is ready to retry."
+        }
+    }
+
+    var questionLimit: Int { currentSessionType.questionLimit }
+
+    var canStartWeeklySession: Bool {
+        UserDefaults.standard.string(forKey: weeklySessionWeekKey) != Self.localWeekKey(Date())
+    }
+
+    var displayedQuestionCount: Int {
+        min(max(questionCount, 0), questionLimit)
     }
 
     var hasRequestedQuestionToday: Bool {
@@ -364,58 +466,89 @@ private final class NolaChatStore: ObservableObject {
         return Calendar.current.isDateInToday(date)
     }
 
-    var displayedQuestionCount: Int {
-        min(max(questionCount, messages.isEmpty ? 0 : 1), Self.maxQuestions)
+    var hasUsedSessionToday: Bool {
+        let todayKey = Self.localDateKey(Date())
+        if let storedKey = UserDefaults.standard.string(forKey: dailySessionDateKey) {
+            return storedKey == todayKey
+        }
+        if let startedAt = UserDefaults.standard.object(forKey: sessionStartedAtKey) as? Date {
+            return Calendar.current.isDateInToday(startedAt)
+        }
+        return history.contains { Calendar.current.isDateInToday($0.startedAt) }
+    }
+
+    var canSendMessage: Bool {
+        guard !isWaiting, !isSessionClosed, !canRetry else { return false }
+        if !messages.isEmpty { return true }
+        let hasReservedEmptySession = hasUsedSessionToday
+            && (UserDefaults.standard.object(forKey: sessionStartedAtKey) as? Date) != nil
+            && !didArchiveCurrentSession
+        return !hasUsedSessionToday || hasReservedEmptySession
+    }
+
+    var canRequestOpeningQuestion: Bool {
+        guard !isWaiting, !canRetry, !isSessionClosed, !isAwaitingFinalAnswer,
+              !hasRequestedQuestionToday, questionCount < questionLimit else { return false }
+        return !messages.isEmpty || !hasUsedSessionToday
+    }
+
+    func refreshForCurrentDay() {
+        guard let storedKey = UserDefaults.standard.string(forKey: dailySessionDateKey),
+              storedKey != Self.localDateKey(Date()) else { return }
+
+        if !messages.isEmpty {
+            archiveCurrentSession()
+        }
+        clearCurrentSession()
     }
 
     func sendUserMessage(_ text: String, context: String) {
-        guard !isWaiting, !isSessionClosed else { return }
+        refreshForCurrentDay()
+        guard canSendMessage else { return }
         guard !(VeniceKeychain.apiKey ?? "").isEmpty else {
             needsAPIKey = true
             return
         }
+        guard beginSessionIfAllowed() else { return }
+
         messages.append(NolaChatMessage(role: .user, content: text))
         persist()
-        if isAwaitingFinalAnswer || questionCount >= Self.maxQuestions {
+        if isAwaitingFinalAnswer || questionCount >= questionLimit {
             requestClosing()
         } else {
             requestQuestionReply(extraContext: context)
         }
     }
 
-    func requestOpeningQuestion(context: String) {
-        guard !isWaiting, !isSessionClosed, !hasRequestedQuestionToday, questionCount < Self.maxQuestions else { return }
+    func requestOpeningQuestion(context: String, sessionType: NolaChatSessionType = .daily) {
+        refreshForCurrentDay()
+        guard canRequestOpeningQuestion else { return }
+        if sessionType == .weekly && !canStartWeeklySession { return }
         guard !(VeniceKeychain.apiKey ?? "").isEmpty else {
             needsAPIKey = true
             return
         }
+        requestedSessionType = sessionType
+        guard beginSessionIfAllowed() else {
+            requestedSessionType = .daily
+            return
+        }
+        requestedSessionType = .daily
         UserDefaults.standard.set(Date(), forKey: requestDateKey)
         requestQuestionReply(extraContext: context, openingQuestion: true)
     }
 
     func endSession() {
+        refreshForCurrentDay()
         guard !messages.isEmpty else { return }
         isSessionClosed = true
         isAwaitingFinalAnswer = false
-        statusMessage = "Session ended. Start a new one anytime."
-        persist()
+        statusMessage = "Session ended."
         archiveCurrentSession()
-    }
-
-    func startNewSession() {
-        archiveCurrentSession()
-        messages = []
-        questionCount = 0
-        isSessionClosed = false
-        isAwaitingFinalAnswer = false
-        statusMessage = nil
-        pendingRequest = nil
-        canRetry = false
-        didArchiveCurrentSession = false
-        persist()
     }
 
     func retryLastRequest() {
+        refreshForCurrentDay()
         guard !isWaiting, canRetry, let pendingRequest else { return }
         canRetry = false
         switch pendingRequest {
@@ -436,13 +569,288 @@ private final class NolaChatStore: ObservableObject {
         persistHistory()
     }
 
+    func reloadFromDefaults() {
+        let defaults = UserDefaults.standard
+        if let data = defaults.data(forKey: messagesKey),
+           let saved = try? JSONDecoder().decode([NolaChatMessage].self, from: data) {
+            messages = saved
+        } else {
+            messages = []
+        }
+        questionCount = defaults.integer(forKey: questionCountKey)
+        isSessionClosed = defaults.bool(forKey: sessionClosedKey)
+        isAwaitingFinalAnswer = defaults.bool(forKey: awaitingFinalAnswerKey)
+        didArchiveCurrentSession = defaults.bool(forKey: archivedKey)
+        currentSessionType = NolaChatSessionType(rawValue: defaults.string(forKey: currentSessionTypeKey) ?? "") ?? .daily
+        if let data = defaults.data(forKey: historyKey),
+           let saved = try? JSONDecoder().decode([NolaChatSession].self, from: data) {
+            history = saved
+        } else {
+            history = []
+        }
+        refreshForCurrentDay()
+    }
+
+    static let backupImportedNotification = Notification.Name("NolaBackupImported")
+
+    static func makeBackupSnapshot() -> BackupCompanionData {
+        let defaults = UserDefaults.standard
+        let savedMessages = defaults.data(forKey: "nola.ai.messages")
+            .flatMap { try? JSONDecoder().decode([NolaChatMessage].self, from: $0) } ?? []
+        let savedHistory = defaults.data(forKey: "nola.ai.chatHistory")
+            .flatMap { try? JSONDecoder().decode([NolaChatSession].self, from: $0) } ?? []
+        let savedType = NolaChatSessionType(rawValue: defaults.string(forKey: "nola.ai.currentSessionType") ?? "") ?? .daily
+        let startedAt = defaults.object(forKey: "nola.ai.sessionStartedAt") as? Date ?? savedMessages.first?.createdAt
+        let currentSession: BackupCompanionSession?
+        if !savedMessages.isEmpty || startedAt != nil {
+            let start = startedAt ?? Date()
+            let sessionID = defaults.string(forKey: "nola.ai.currentSessionID")
+                .flatMap { UUID(uuidString: $0) } ?? UUID()
+            if defaults.string(forKey: "nola.ai.currentSessionID") == nil {
+                defaults.set(sessionID.uuidString, forKey: "nola.ai.currentSessionID")
+            }
+            currentSession = BackupCompanionSession(
+                id: sessionID,
+                startedAt: start,
+                endedAt: savedMessages.last?.createdAt ?? start,
+                messages: savedMessages.map {
+                    BackupCompanionMessage(id: $0.id, role: $0.role.rawValue, content: $0.content, createdAt: $0.createdAt)
+                },
+                questionCount: defaults.integer(forKey: "nola.ai.questionCount"),
+                isComplete: defaults.bool(forKey: "nola.ai.sessionClosed"),
+                sessionType: savedType.rawValue,
+                questionLimit: savedType.questionLimit
+            )
+        } else {
+            currentSession = nil
+        }
+
+        return BackupCompanionData(
+            history: savedHistory.map { session in
+                BackupCompanionSession(
+                    id: session.id,
+                    startedAt: session.startedAt,
+                    endedAt: session.endedAt,
+                    messages: session.messages.map {
+                        BackupCompanionMessage(id: $0.id, role: $0.role.rawValue, content: $0.content, createdAt: $0.createdAt)
+                    },
+                    questionCount: session.questionCount,
+                    isComplete: session.isComplete,
+                    sessionType: session.sessionType,
+                    questionLimit: session.questionLimit
+                )
+            },
+            currentSession: currentSession,
+            dailySessionDateKey: defaults.string(forKey: "nola.ai.dailySessionDate"),
+            weeklySessionWeekKey: defaults.string(forKey: "nola.ai.weeklySessionWeek"),
+            requestQuestionDate: defaults.object(forKey: "nola.ai.requestQuestionDate") as? Date,
+            currentSessionClosed: defaults.bool(forKey: "nola.ai.sessionClosed"),
+            currentSessionAwaitingFinalAnswer: defaults.bool(forKey: "nola.ai.awaitingFinalAnswer"),
+            currentSessionArchived: defaults.bool(forKey: "nola.ai.currentSessionArchived"),
+            currentSessionType: savedType.rawValue,
+            currentQuestionCount: defaults.integer(forKey: "nola.ai.questionCount"),
+            currentSessionStartedAt: startedAt
+        )
+    }
+
+    @discardableResult
+    static func mergeBackup(_ backup: BackupCompanionData?) -> Int {
+        guard let backup else { return 0 }
+        let defaults = UserDefaults.standard
+        let existingHistory = defaults.data(forKey: "nola.ai.chatHistory")
+            .flatMap { try? JSONDecoder().decode([NolaChatSession].self, from: $0) } ?? []
+        var mergedHistory = existingHistory
+        var seenIDs = Set(existingHistory.map(\.id))
+        let incomingHistory = backup.history.compactMap { restoreSession($0) }
+        let newHistory = incomingHistory.filter { seenIDs.insert($0.id).inserted }
+        mergedHistory.append(contentsOf: newHistory)
+
+        let currentMessages = defaults.data(forKey: "nola.ai.messages")
+            .flatMap { try? JSONDecoder().decode([NolaChatMessage].self, from: $0) } ?? []
+        let localDailyKey = defaults.string(forKey: "nola.ai.dailySessionDate")
+        let canRestoreIncomingCurrentSession = localDailyKey.map { localKey in
+            backup.dailySessionDateKey.map { $0 >= localKey } ?? false
+        } ?? true
+        var restoredCurrentSession = false
+
+        if currentMessages.isEmpty,
+           canRestoreIncomingCurrentSession,
+           let incoming = backup.currentSession {
+            let restoredMessages = restoreMessages(incoming.messages)
+            if restoredMessages.count == incoming.messages.count,
+               let data = try? JSONEncoder().encode(restoredMessages) {
+                defaults.set(data, forKey: "nola.ai.messages")
+                defaults.set(incoming.questionCount, forKey: "nola.ai.questionCount")
+                defaults.set(incoming.isComplete || backup.currentSessionClosed, forKey: "nola.ai.sessionClosed")
+                defaults.set(backup.currentSessionAwaitingFinalAnswer, forKey: "nola.ai.awaitingFinalAnswer")
+                defaults.set(backup.currentSessionArchived, forKey: "nola.ai.currentSessionArchived")
+                defaults.set(incoming.sessionType ?? backup.currentSessionType, forKey: "nola.ai.currentSessionType")
+                defaults.set(incoming.startedAt, forKey: "nola.ai.sessionStartedAt")
+                defaults.set(incoming.id.uuidString, forKey: "nola.ai.currentSessionID")
+                restoredCurrentSession = true
+            }
+        }
+
+        // If the local device already has a different active chat, preserve
+        // the imported active chat as a history item instead of dropping it.
+        var importedActiveAsHistory = false
+        if !restoredCurrentSession,
+           let incoming = backup.currentSession,
+           !incoming.messages.isEmpty,
+           !mergedHistory.contains(where: { $0.id == incoming.id }) {
+            let localSessionID = defaults.string(forKey: "nola.ai.currentSessionID")
+                .flatMap { UUID(uuidString: $0) }
+            let localStartedAt = defaults.object(forKey: "nola.ai.sessionStartedAt") as? Date
+                ?? currentMessages.first?.createdAt
+            let localFirstMessageID = currentMessages.first?.id
+            let incomingFirstMessageID = incoming.messages.first?.id
+            let isSameLocalSession = localSessionID == incoming.id
+                || (localStartedAt == incoming.startedAt
+                    && localFirstMessageID != nil
+                    && localFirstMessageID == incomingFirstMessageID)
+
+            if !isSameLocalSession, let restored = restoreSession(incoming) {
+                mergedHistory.insert(restored, at: 0)
+                importedActiveAsHistory = true
+            }
+        }
+
+        mergedHistory.sort { $0.startedAt > $1.startedAt }
+        if mergedHistory.count > Self.historyLimit {
+            mergedHistory = Array(mergedHistory.prefix(Self.historyLimit))
+        }
+        let retainedHistoryIDs = Set(mergedHistory.map(\.id))
+        let retainedNewHistoryCount = newHistory.filter { retainedHistoryIDs.contains($0.id) }.count
+        let retainedImportedActiveAsHistory = importedActiveAsHistory
+            && (backup.currentSession.map { retainedHistoryIDs.contains($0.id) } ?? false)
+        if let data = try? JSONEncoder().encode(mergedHistory) {
+            defaults.set(data, forKey: "nola.ai.chatHistory")
+        }
+
+        if let incomingKey = backup.dailySessionDateKey {
+            let currentKey = defaults.string(forKey: "nola.ai.dailySessionDate")
+            if currentKey.map({ incomingKey > $0 }) ?? true {
+                defaults.set(incomingKey, forKey: "nola.ai.dailySessionDate")
+            }
+        }
+        if let incomingWeek = backup.weeklySessionWeekKey {
+            let currentWeek = defaults.string(forKey: "nola.ai.weeklySessionWeek")
+            if currentWeek.map({ incomingWeek > $0 }) ?? true {
+                defaults.set(incomingWeek, forKey: "nola.ai.weeklySessionWeek")
+            }
+        }
+        if let incomingDate = backup.requestQuestionDate {
+            let currentDate = defaults.object(forKey: "nola.ai.requestQuestionDate") as? Date
+            if currentDate.map({ incomingDate > $0 }) ?? true {
+                defaults.set(incomingDate, forKey: "nola.ai.requestQuestionDate")
+            }
+        }
+
+        NotificationCenter.default.post(name: backupImportedNotification, object: nil)
+        let activeSessionIsSeparate = restoredCurrentSession
+            && (backup.currentSession.map { incoming in
+                !retainedHistoryIDs.contains(incoming.id)
+            } ?? false)
+        return retainedNewHistoryCount
+            + (retainedImportedActiveAsHistory ? 1 : 0)
+            + (activeSessionIsSeparate ? 1 : 0)
+    }
+
+    static func applyBackupPreferences(_ preferences: BackupAppPreferences?) {
+        guard let preferences else { return }
+        let defaults = UserDefaults.standard
+        if ["light", "dark"].contains(preferences.theme) {
+            defaults.set(preferences.theme, forKey: "nola.theme")
+        }
+        if !preferences.chatModel.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            defaults.set(preferences.chatModel, forKey: "nola.ai.chatModel")
+        }
+    }
+
+    private static func restoreSession(_ session: BackupCompanionSession) -> NolaChatSession? {
+        let messages = restoreMessages(session.messages)
+        guard messages.count == session.messages.count else { return nil }
+        return NolaChatSession(
+            id: session.id,
+            startedAt: session.startedAt,
+            endedAt: session.endedAt,
+            messages: messages,
+            questionCount: session.questionCount,
+            isComplete: session.isComplete,
+            sessionType: session.sessionType
+        )
+    }
+
+    private static func restoreMessages(_ messages: [BackupCompanionMessage]) -> [NolaChatMessage] {
+        messages.compactMap { item in
+            guard let role = ChatRole(rawValue: item.role) else { return nil }
+            return NolaChatMessage(id: item.id, role: role, content: item.content, createdAt: item.createdAt)
+        }
+    }
+
+    private func beginSessionIfAllowed() -> Bool {
+        if !messages.isEmpty { return true }
+        if hasUsedSessionToday {
+            return (UserDefaults.standard.object(forKey: sessionStartedAtKey) as? Date) != nil
+                && !didArchiveCurrentSession
+                && !isSessionClosed
+        }
+
+        let now = Date()
+        let defaults = UserDefaults.standard
+        let weekKey = Self.localWeekKey(now)
+        let lastWeeklyWeek = defaults.string(forKey: weeklySessionWeekKey)
+        currentSessionType = requestedSessionType
+        if currentSessionType == .weekly && lastWeeklyWeek == weekKey {
+            return false
+        }
+        defaults.set(UUID().uuidString, forKey: currentSessionIDKey)
+        defaults.set(Self.localDateKey(now), forKey: dailySessionDateKey)
+        defaults.set(now, forKey: sessionStartedAtKey)
+        defaults.set(currentSessionType.rawValue, forKey: currentSessionTypeKey)
+        if currentSessionType == .weekly {
+            defaults.set(weekKey, forKey: weeklySessionWeekKey)
+        }
+        persist()
+        return true
+    }
+
+    private func migrateLegacySessionState() {
+        let defaults = UserDefaults.standard
+        if defaults.string(forKey: dailySessionDateKey) == nil {
+            if let firstMessage = messages.first {
+                defaults.set(Self.localDateKey(firstMessage.createdAt), forKey: dailySessionDateKey)
+                defaults.set(firstMessage.createdAt, forKey: sessionStartedAtKey)
+            } else if let latestSession = history.first {
+                defaults.set(Self.localDateKey(latestSession.startedAt), forKey: dailySessionDateKey)
+            }
+        }
+        if defaults.string(forKey: currentSessionTypeKey) == nil {
+            currentSessionType = .daily
+            defaults.set(currentSessionType.rawValue, forKey: currentSessionTypeKey)
+        }
+        if defaults.string(forKey: weeklySessionWeekKey) == nil {
+            let lastWeeklySession = history.first { $0.sessionType == NolaChatSessionType.weekly.rawValue }
+            if let lastWeeklySession {
+                defaults.set(Self.localWeekKey(lastWeeklySession.startedAt), forKey: weeklySessionWeekKey)
+            }
+        }
+        if defaults.object(forKey: sessionStartedAtKey) == nil, let firstMessage = messages.first {
+            defaults.set(firstMessage.createdAt, forKey: sessionStartedAtKey)
+        }
+        if defaults.string(forKey: currentSessionIDKey) == nil, !messages.isEmpty {
+            defaults.set(UUID().uuidString, forKey: currentSessionIDKey)
+        }
+    }
+
     private func requestQuestionReply(extraContext: String, openingQuestion: Bool = false) {
         guard let key = VeniceKeychain.apiKey, !key.isEmpty else {
             needsAPIKey = true
             return
         }
-        let history = messages
+        let requestMessages = messages
         let countAtRequest = questionCount
+        let limitAtRequest = questionLimit
         pendingRequest = .question(context: extraContext, openingQuestion: openingQuestion)
         canRetry = false
         isWaiting = true
@@ -453,10 +861,10 @@ private final class NolaChatStore: ObservableObject {
                 let reply = try await VeniceClient.reply(
                     apiKey: key,
                     model: selectedModel,
-                    messages: history,
+                    messages: requestMessages,
                     context: extraContext,
                     openingQuestion: openingQuestion,
-                    remainingQuestions: max(0, Self.maxQuestions - countAtRequest)
+                    remainingQuestions: max(0, limitAtRequest - countAtRequest)
                 )
                 await MainActor.run {
                     self.messages.append(NolaChatMessage(role: .assistant, content: reply))
@@ -464,7 +872,7 @@ private final class NolaChatStore: ObservableObject {
                     self.pendingRequest = nil
                     self.canRetry = false
                     self.isWaiting = false
-                    if self.questionCount >= Self.maxQuestions {
+                    if self.questionCount >= self.questionLimit {
                         self.isAwaitingFinalAnswer = true
                         self.statusMessage = "Answer this last one — then I’ll close our session."
                     }
@@ -485,7 +893,8 @@ private final class NolaChatStore: ObservableObject {
             needsAPIKey = true
             return
         }
-        let history = messages
+        let requestMessages = messages
+        let limitAtRequest = questionLimit
         pendingRequest = .closing
         canRetry = false
         isWaiting = true
@@ -493,7 +902,12 @@ private final class NolaChatStore: ObservableObject {
         Task {
             do {
                 let selectedModel = UserDefaults.standard.string(forKey: "nola.ai.chatModel") ?? VeniceClient.defaultChatModel
-                let reply = try await VeniceClient.closing(apiKey: key, model: selectedModel, messages: history)
+                let reply = try await VeniceClient.closing(
+                    apiKey: key,
+                    model: selectedModel,
+                    messages: requestMessages,
+                    questionLimit: limitAtRequest
+                )
                 await MainActor.run {
                     self.messages.append(NolaChatMessage(role: .assistant, content: reply))
                     self.pendingRequest = nil
@@ -502,7 +916,6 @@ private final class NolaChatStore: ObservableObject {
                     self.isAwaitingFinalAnswer = false
                     self.isSessionClosed = true
                     self.statusMessage = "Session complete."
-                    self.persist()
                     self.archiveCurrentSession()
                 }
             } catch {
@@ -518,36 +931,76 @@ private final class NolaChatStore: ObservableObject {
     private func archiveCurrentSession() {
         guard !messages.isEmpty, !didArchiveCurrentSession else { return }
         didArchiveCurrentSession = true
+        let startedAt = UserDefaults.standard.object(forKey: sessionStartedAtKey) as? Date
+            ?? messages.first?.createdAt ?? Date()
+        let defaults = UserDefaults.standard
+        let sessionID = defaults.string(forKey: currentSessionIDKey)
+            .flatMap { UUID(uuidString: $0) } ?? UUID()
+        defaults.set(sessionID.uuidString, forKey: currentSessionIDKey)
         let session = NolaChatSession(
-            id: UUID(),
-            startedAt: messages.first?.createdAt ?? Date(),
-            endedAt: messages.last?.createdAt ?? Date(),
+            id: sessionID,
+            startedAt: startedAt,
+            endedAt: messages.last?.createdAt ?? startedAt,
             messages: messages,
             questionCount: questionCount,
-            isComplete: isSessionClosed || questionCount >= Self.maxQuestions
+            isComplete: isSessionClosed,
+            sessionType: currentSessionType.rawValue
         )
         history.insert(session, at: 0)
-        if history.count > historyLimit {
-            history = Array(history.prefix(historyLimit))
+        if history.count > Self.historyLimit {
+            history = Array(history.prefix(Self.historyLimit))
         }
         persist()
         persistHistory()
     }
 
+    private func clearCurrentSession() {
+        messages = []
+        questionCount = 0
+        isSessionClosed = false
+        isAwaitingFinalAnswer = false
+        statusMessage = nil
+        pendingRequest = nil
+        canRetry = false
+        didArchiveCurrentSession = false
+        currentSessionType = .daily
+        let defaults = UserDefaults.standard
+        defaults.removeObject(forKey: messagesKey)
+        defaults.removeObject(forKey: questionCountKey)
+        defaults.removeObject(forKey: sessionClosedKey)
+        defaults.removeObject(forKey: awaitingFinalAnswerKey)
+        defaults.removeObject(forKey: archivedKey)
+        defaults.removeObject(forKey: currentSessionTypeKey)
+        defaults.removeObject(forKey: sessionStartedAtKey)
+        defaults.removeObject(forKey: currentSessionIDKey)
+    }
+
     private func persist() {
+        let defaults = UserDefaults.standard
         if let data = try? JSONEncoder().encode(messages) {
-            UserDefaults.standard.set(data, forKey: messagesKey)
+            defaults.set(data, forKey: messagesKey)
         }
-        UserDefaults.standard.set(questionCount, forKey: questionCountKey)
-        UserDefaults.standard.set(isSessionClosed, forKey: sessionClosedKey)
-        UserDefaults.standard.set(isAwaitingFinalAnswer, forKey: awaitingFinalAnswerKey)
-        UserDefaults.standard.set(didArchiveCurrentSession, forKey: archivedKey)
+        defaults.set(questionCount, forKey: questionCountKey)
+        defaults.set(isSessionClosed, forKey: sessionClosedKey)
+        defaults.set(isAwaitingFinalAnswer, forKey: awaitingFinalAnswerKey)
+        defaults.set(didArchiveCurrentSession, forKey: archivedKey)
+        defaults.set(currentSessionType.rawValue, forKey: currentSessionTypeKey)
     }
 
     private func persistHistory() {
         if let data = try? JSONEncoder().encode(history) {
             UserDefaults.standard.set(data, forKey: historyKey)
         }
+    }
+
+    private static func localDateKey(_ date: Date) -> String {
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
+        return String(format: "%04d-%02d-%02d", components.year ?? 0, components.month ?? 0, components.day ?? 0)
+    }
+
+    private static func localWeekKey(_ date: Date) -> String {
+        let components = Calendar.current.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+        return String(format: "%04d-%02d", components.yearForWeekOfYear ?? 0, components.weekOfYear ?? 0)
     }
 }
 
@@ -596,7 +1049,7 @@ private struct ChatHistoryScreen: View {
                         Text("No past sessions yet")
                             .font(.system(size: 20, weight: .semibold, design: .serif))
                             .foregroundColor(NolaTheme.text)
-                        Text("Finished sessions will appear here.")
+                        Text("Past sessions will appear here.")
                             .font(.system(size: 14))
                             .foregroundColor(NolaTheme.secondaryText)
                     }
@@ -654,7 +1107,7 @@ private struct HistoryRow: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(NolaTheme.text)
                 Spacer()
-                Text("\(min(max(session.questionCount, 1), NolaChatStore.maxQuestions)) / \(NolaChatStore.maxQuestions) questions")
+                Text("\(min(max(session.questionCount, 0), session.questionLimit)) / \(session.questionLimit) questions")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(NolaTheme.secondaryText)
             }
@@ -730,8 +1183,8 @@ private enum VeniceClient {
         throw VeniceError.invalidResponse
     }
 
-    static func closing(apiKey: String, model: String, messages: [NolaChatMessage]) async throws -> String {
-        var apiMessages: [[String: String]] = [["role": "system", "content": closingPrompt()]]
+    static func closing(apiKey: String, model: String, messages: [NolaChatMessage], questionLimit: Int) async throws -> String {
+        var apiMessages: [[String: String]] = [["role": "system", "content": closingPrompt(questionLimit: questionLimit)]]
         apiMessages += messages.map { ["role": $0.role.rawValue, "content": $0.content] }
         let primary = requestBody(model: model, messages: apiMessages, maxTokens: 800, stripThinking: true, disableThinking: false)
         let object = try await complete(apiKey: apiKey, body: primary)
@@ -889,9 +1342,9 @@ private enum VeniceClient {
         "Use only the following relevant local context. Ask one open-ended, interesting question that helps me notice a useful pattern. Do not mention the context source.\n\n\(context)"
     }
 
-    private static func closingPrompt() -> String {
+    private static func closingPrompt(questionLimit: Int) -> String {
         """
-        You are Nola, a private guided-journaling companion. The user has just given their seventh and final answer, so this session is ending. Write one short closing of no more than 90 words, in plain prose with no headings or bullet points, containing:
+        You are Nola, a private guided-journaling companion. The user has just given their \(questionLimit)th and final answer, so this session is ending. Write one short closing of no more than 90 words, in plain prose with no headings or bullet points, containing:
         1. What you heard — briefly and accurately reflect the heart of what the user shared.
         2. The one tension worth sitting with — name a single tension, contradiction, or open loop you noticed, without resolving it.
         3. Either a question for the user to sit with themselves, or one small suggested offline action. Not a verdict, not advice, not a solution.
@@ -1145,7 +1598,6 @@ private struct TodayScreen: View {
     @FetchRequest(fetchRequest: MemorableMoment.sortedFetchRequest())
     private var moments: FetchedResults<MemorableMoment>
     @State private var selectedDate = Calendar.current.startOfDay(for: Date())
-    @State private var swipeTransitionEdge: Edge = .trailing
     @State private var moodSheet: MoodCheckInSheet?
     @State private var showingEntryEditor = false
     @State private var showingMomentEditor = false
@@ -1190,22 +1642,10 @@ private struct TodayScreen: View {
                         memorableMomentsSection
                     }
                     .id(selectedDate)
-                    .transition(.asymmetric(
-                        insertion: .move(edge: swipeTransitionEdge),
-                        removal: .move(edge: swipeTransitionEdge == .trailing ? .leading : .trailing)
-                    ))
                 }
                 .padding(22)
             }
             .background(NolaTheme.background.ignoresSafeArea())
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 30)
-                    .onEnded { value in
-                        guard abs(value.translation.width) > abs(value.translation.height),
-                              abs(value.translation.width) > 60 else { return }
-                        moveSelectedDay(by: value.translation.width < 0 ? 1 : -1)
-                    }
-            )
             .navigationBarHidden(true)
             .sheet(item: $moodSheet) { sheet in
                 MoodCheckInView(entry: sheet.entry, date: sheet.date)
@@ -1233,62 +1673,60 @@ private struct TodayScreen: View {
     }
 
     private var dateCarousel: some View {
-        let dates = datesInSelectedWeek
-        return HStack(spacing: 8) {
-            ForEach(dates, id: \.self) { date in
-                let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
-                let isFuture = date > Calendar.current.startOfDay(for: Date())
-                Button { selectDateWithoutAnimation(date) } label: {
-                    VStack(spacing: 7) {
-                        Text(date, formatter: Self.weekdayFormatter)
-                            .font(.system(size: 10, weight: .medium))
-                        Text(date, formatter: Self.dayNumberFormatter)
-                            .font(.system(size: 16, weight: .semibold))
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: 8) {
+                    ForEach(datesInCarousel, id: \.self) { date in
+                        let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedDate)
+                        let isFuture = date > Calendar.current.startOfDay(for: Date())
+                        Button { selectDateWithoutAnimation(date) } label: {
+                            VStack(spacing: 7) {
+                                Text(date, formatter: Self.weekdayFormatter)
+                                    .font(.system(size: 10, weight: .medium))
+                                Text(date, formatter: Self.dayNumberFormatter)
+                                    .font(.system(size: 16, weight: .semibold))
+                            }
+                            .foregroundColor(isSelected ? Color.white : NolaTheme.text)
+                            .frame(width: 48, height: 58)
+                            .background(isSelected ? NolaTheme.accentStrong : NolaTheme.surface.opacity(0.72))
+                            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(isSelected ? Color.clear : NolaTheme.cardBorder.opacity(0.65), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(isFuture)
+                        .opacity(isFuture ? 0.42 : 1)
+                        .accessibilityLabel(date.formatted(date: .complete, time: .omitted))
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
+                        .id(date)
                     }
-                    .foregroundColor(isSelected ? Color.white : NolaTheme.text)
-                    .frame(maxWidth: .infinity, minHeight: 58)
-                    .background(isSelected ? NolaTheme.accentStrong : NolaTheme.surface.opacity(0.72))
-                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(isSelected ? Color.clear : NolaTheme.cardBorder.opacity(0.65), lineWidth: 1))
                 }
-                .buttonStyle(.plain)
-                .disabled(isFuture)
-                .opacity(isFuture ? 0.42 : 1)
-                .accessibilityLabel(date.formatted(date: .complete, time: .omitted))
-                .accessibilityAddTraits(isSelected ? .isSelected : [])
+                .padding(.horizontal, 1)
             }
-
+            .onAppear {
+                proxy.scrollTo(selectedDate, anchor: .center)
+            }
+            .onChange(of: selectedDate) { date in
+                withAnimation(.easeOut(duration: 0.2)) {
+                    proxy.scrollTo(date, anchor: .center)
+                }
+            }
         }
         .foregroundColor(NolaTheme.accent)
-        .transaction { $0.animation = nil }
-        .animation(nil, value: selectedDate)
-
     }
 
-    private var datesInSelectedWeek: [Date] {
+    private var datesInCarousel: [Date] {
         let calendar = Calendar.current
-        let weekday = calendar.component(.weekday, from: selectedDate)
-        let offset = (weekday - calendar.firstWeekday + 7) % 7
-        guard let firstDay = calendar.date(byAdding: .day, value: -offset, to: selectedDate) else { return [selectedDate] }
-        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: firstDay) }
-    }
-
-    private func weekStart(for date: Date) -> Date {
-        let calendar = Calendar.current
-        let weekday = calendar.component(.weekday, from: date)
-        let offset = (weekday - calendar.firstWeekday + 7) % 7
-        return calendar.date(byAdding: .day, value: -offset, to: calendar.startOfDay(for: date)) ?? calendar.startOfDay(for: date)
-    }
-
-    private func moveSelectedDay(by amount: Int) {
-        guard let newDate = Calendar.current.date(byAdding: .day, value: amount, to: selectedDate) else { return }
-        let today = Calendar.current.startOfDay(for: Date())
-        guard newDate <= today else { return }
-        swipeTransitionEdge = amount > 0 ? .trailing : .leading
-        withAnimation(.easeInOut(duration: 0.28)) {
-            selectedDate = newDate
-        }
+        let today = calendar.startOfDay(for: Date())
+        let defaultStart = calendar.date(byAdding: .day, value: -30, to: today) ?? today
+        let recordDates = entries.map { calendar.startOfDay(for: $0.safeCreatedAt) }
+            + moodEntries.map { calendar.startOfDay(for: $0.safeDate) }
+            + moments.map { calendar.startOfDay(for: $0.safeDate) }
+        let earliestRecord = recordDates.min() ?? defaultStart
+        let start = [defaultStart, earliestRecord, selectedDate].min() ?? defaultStart
+        let end = calendar.date(byAdding: .day, value: 7, to: today) ?? today
+        let dayCount = max(0, calendar.dateComponents([.day], from: start, to: end).day ?? 0)
+        return (0...dayCount).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
     }
 
     private func selectDateWithoutAnimation(_ date: Date) {
@@ -1917,7 +2355,7 @@ private struct JournalScreen: View {
                         Button {
                             prepareBackupExport()
                         } label: {
-                            Label("Export readable backup", systemImage: "square.and.arrow.up")
+                            Label("Export all Nola data", systemImage: "square.and.arrow.up")
                         }
                         Button {
                             showingBackupImporter = true
@@ -1957,11 +2395,11 @@ private struct JournalScreen: View {
             isPresented: $showingBackupExporter,
             document: backupDocument,
             contentType: .json,
-            defaultFilename: "Nola-Journal-Backup"
+            defaultFilename: "Nola-Complete-Backup"
         ) { result in
             switch result {
             case .success:
-                presentJournalAlert(title: "Backup exported", message: "Your readable Nola backup was saved.")
+                presentJournalAlert(title: "Backup exported", message: "Your backup includes journal entries, mood check-ins, memorable moments, saved Companion history and the current conversation, plus app preferences. Insights and feedback have no saved records in this build. Your Venice API key is not included.")
             case .failure(let error):
                 presentJournalAlert(title: "Couldn’t export backup", message: error.localizedDescription)
             }
@@ -1991,7 +2429,15 @@ private struct JournalScreen: View {
 
     private func prepareBackupExport() {
         do {
-            let backup = try JournalBackup.make(from: context)
+            let preferences = BackupAppPreferences(
+                theme: UserDefaults.standard.string(forKey: "nola.theme") ?? "light",
+                chatModel: UserDefaults.standard.string(forKey: "nola.ai.chatModel") ?? VeniceClient.defaultChatModel
+            )
+            let backup = try JournalBackup.make(
+                from: context,
+                companion: NolaChatStore.makeBackupSnapshot(),
+                preferences: preferences
+            )
             backupDocument = JournalBackupFile(data: try backup.encodedData())
             showingBackupExporter = true
         } catch {
@@ -2008,7 +2454,12 @@ private struct JournalScreen: View {
             let backupData = try JournalBackup.readFile(at: url)
             let backup = try JournalBackup.decode(backupData)
             let imported = try backup.merge(into: context)
-            presentJournalAlert(title: "Backup imported", message: imported.summary)
+            let importedChats = NolaChatStore.mergeBackup(backup.companion)
+            NolaChatStore.applyBackupPreferences(backup.preferences)
+            let chatSummary = importedChats == 0
+                ? ""
+                : " Also restored or merged \(importedChats) Companion session(s)."
+            presentJournalAlert(title: "Backup imported", message: imported.summary + chatSummary)
         } catch {
             presentJournalAlert(title: "Couldn’t import backup", message: error.localizedDescription)
         }

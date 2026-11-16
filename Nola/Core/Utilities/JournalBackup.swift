@@ -7,10 +7,58 @@ struct JournalBackup: Codable {
     let entries: [BackupJournalEntry]
     let moodCheckIns: [BackupMoodCheckIn]
     let memorableMoments: [BackupMemorableMoment]
+    let companion: BackupCompanionData?
+    let preferences: BackupAppPreferences?
+    let insights: [BackupTextRecord]
+    let feedback: [BackupTextRecord]
 
-    static let currentFormatVersion = 1
+    static let currentFormatVersion = 2
 
-    static func make(from context: NSManagedObjectContext) throws -> JournalBackup {
+    private enum CodingKeys: String, CodingKey {
+        case formatVersion, exportedAt, entries, moodCheckIns, memorableMoments
+        case companion, preferences, insights, feedback
+    }
+
+    init(
+        formatVersion: Int,
+        exportedAt: Date,
+        entries: [BackupJournalEntry],
+        moodCheckIns: [BackupMoodCheckIn],
+        memorableMoments: [BackupMemorableMoment],
+        companion: BackupCompanionData?,
+        preferences: BackupAppPreferences?,
+        insights: [BackupTextRecord],
+        feedback: [BackupTextRecord]
+    ) {
+        self.formatVersion = formatVersion
+        self.exportedAt = exportedAt
+        self.entries = entries
+        self.moodCheckIns = moodCheckIns
+        self.memorableMoments = memorableMoments
+        self.companion = companion
+        self.preferences = preferences
+        self.insights = insights
+        self.feedback = feedback
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        formatVersion = try container.decode(Int.self, forKey: .formatVersion)
+        exportedAt = try container.decode(Date.self, forKey: .exportedAt)
+        entries = try container.decodeIfPresent([BackupJournalEntry].self, forKey: .entries) ?? []
+        moodCheckIns = try container.decodeIfPresent([BackupMoodCheckIn].self, forKey: .moodCheckIns) ?? []
+        memorableMoments = try container.decodeIfPresent([BackupMemorableMoment].self, forKey: .memorableMoments) ?? []
+        companion = try container.decodeIfPresent(BackupCompanionData.self, forKey: .companion)
+        preferences = try container.decodeIfPresent(BackupAppPreferences.self, forKey: .preferences)
+        insights = try container.decodeIfPresent([BackupTextRecord].self, forKey: .insights) ?? []
+        feedback = try container.decodeIfPresent([BackupTextRecord].self, forKey: .feedback) ?? []
+    }
+
+    static func make(
+        from context: NSManagedObjectContext,
+        companion: BackupCompanionData? = nil,
+        preferences: BackupAppPreferences? = nil
+    ) throws -> JournalBackup {
         let entries = try context.fetch(JournalEntry.fetchRequest()).map { entry in
             BackupJournalEntry(
                 id: entry.id ?? UUID(),
@@ -42,7 +90,13 @@ struct JournalBackup: Codable {
             exportedAt: Date(),
             entries: entries,
             moodCheckIns: moods,
-            memorableMoments: moments
+            memorableMoments: moments,
+            companion: companion,
+            preferences: preferences,
+            // These categories have no persisted records in the current build.
+            // Keeping explicit arrays makes the export schema ready for them.
+            insights: [],
+            feedback: []
         )
     }
 
@@ -57,7 +111,7 @@ struct JournalBackup: Codable {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let backup = try decoder.decode(JournalBackup.self, from: data)
-        guard backup.formatVersion == currentFormatVersion else {
+        guard (1...currentFormatVersion).contains(backup.formatVersion) else {
             throw JournalBackupError.unsupportedVersion(backup.formatVersion)
         }
         return backup
@@ -160,6 +214,49 @@ struct BackupMemorableMoment: Codable {
     let date: Date
 }
 
+struct BackupCompanionData: Codable {
+    let history: [BackupCompanionSession]
+    let currentSession: BackupCompanionSession?
+    let dailySessionDateKey: String?
+    let weeklySessionWeekKey: String?
+    let requestQuestionDate: Date?
+    let currentSessionClosed: Bool
+    let currentSessionAwaitingFinalAnswer: Bool
+    let currentSessionArchived: Bool
+    let currentSessionType: String
+    let currentQuestionCount: Int
+    let currentSessionStartedAt: Date?
+}
+
+struct BackupCompanionSession: Codable {
+    let id: UUID
+    let startedAt: Date
+    let endedAt: Date
+    let messages: [BackupCompanionMessage]
+    let questionCount: Int
+    let isComplete: Bool
+    let sessionType: String?
+    let questionLimit: Int?
+}
+
+struct BackupCompanionMessage: Codable {
+    let id: UUID
+    let role: String
+    let content: String
+    let createdAt: Date
+}
+
+struct BackupAppPreferences: Codable {
+    let theme: String
+    let chatModel: String
+}
+
+struct BackupTextRecord: Codable {
+    let id: UUID
+    let createdAt: Date
+    let content: String
+}
+
 struct JournalBackupImportResult {
     let entriesAdded: Int
     let moodsAdded: Int
@@ -184,4 +281,3 @@ enum JournalBackupError: LocalizedError {
         }
     }
 }
-
