@@ -11,7 +11,16 @@
       "localizedDescription": "A personal AI journal for writing entries, tracking moods, saving memorable moments, and having thoughtful Companion conversations.",
       "iconURL": "https://raw.githubusercontent.com/rlvvv/Nola/sidestore/Nola/Resources/Assets.xcassets/AppIcon.appiconset/Nola-Black.png",
       "tintColor": "#252525",
-      "versions": []
+      "versions": [
+        {
+          "version": "1.0.84",
+          "date": "2026-11-17",
+          "localizedDescription": "Automated build 1.0.84.",
+          "downloadURL": "https://github.com/rlvvv/Nola/releases/download/sidestore-build-44002519804/Nola-unsigned.ipa",
+          "size": 888402,
+          "minOSVersion": "15.0"
+        }
+      ]
     }
   ]
 }
