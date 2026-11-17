@@ -122,10 +122,6 @@ jobs:
       # version entry with a link to that build's immutable GitHub Release asset.
       - name: Update SideStore source
         uses: actions/github-script@v7
-        env:
-          APP_VERSION: ${{ env.APP_VERSION }}
-          IPA_SIZE: ${{ env.IPA_SIZE }}
-          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         with:
           script: |
             const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
