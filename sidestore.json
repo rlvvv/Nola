@@ -1,0 +1,17 @@
+{
+  "name": "Nola",
+  "identifier": "io.lvnt.nola.sidestore",
+  "sourceURL": "https://raw.githubusercontent.com/rlvvv/Nola/sidestore/sidestore.json",
+  "apps": [
+    {
+      "name": "Nola",
+      "bundleIdentifier": "com.example.Nola",
+      "developerName": "lvnt",
+      "subtitle": "A personal AI journal",
+      "localizedDescription": "A personal AI journal for writing entries, tracking moods, saving memorable moments, and having thoughtful Companion conversations.",
+      "iconURL": "https://raw.githubusercontent.com/rlvvv/Nola/sidestore/Nola-Black.png",
+      "tintColor": "#252525",
+      "versions": []
+    }
+  ]
+}
