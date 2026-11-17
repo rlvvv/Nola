@@ -13,11 +13,11 @@
       "tintColor": "#252525",
       "versions": [
         {
-          "version": "1.0.84",
+          "version": "1.0.86",
           "date": "2026-11-17",
-          "localizedDescription": "Automated build 1.0.84.",
-          "downloadURL": "https://github.com/rlvvv/Nola/releases/download/sidestore-build-44002519804/Nola-unsigned.ipa",
-          "size": 888402,
+          "localizedDescription": "Automated build 1.0.86.",
+          "downloadURL": "https://github.com/rlvvv/Nola/releases/download/sidestore-build-44002714617/Nola-unsigned.ipa",
+          "size": 888401,
           "minOSVersion": "15.0"
         }
       ]
