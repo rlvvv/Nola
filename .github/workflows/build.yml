@@ -119,8 +119,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --title "Nola $APP_VERSION" \
             --notes "Automated SideStore build from commit $GITHUB_SHA." \
-            --prerelease \
-            --target "$GITHUB_SHA"
+            --prerelease
 
       # Keep one stable source URL. Every successful build replaces its latest
       # version entry with a link to that build's immutable GitHub Release asset.
