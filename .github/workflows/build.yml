@@ -110,6 +110,7 @@ jobs:
 
       # A public GitHub Release hosts the IPA so SideStore can download it.
       - name: Publish IPA release
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -124,6 +125,7 @@ jobs:
       # Keep one stable source URL. Every successful build replaces its latest
       # version entry with a link to that build's immutable GitHub Release asset.
       - name: Update SideStore source
+        if: github.ref == 'refs/heads/main'
         uses: actions/github-script@v7
         with:
           script: |
