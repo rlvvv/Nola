@@ -1,0 +1,16 @@
+{
+  "name": "Nola Swift workspace",
+  "image": "swift:5.10",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "swiftlang.swift-vscode",
+        "GitHub.vscode-pull-request-github"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "files.trimTrailingWhitespace": true
+      }
+    }
+  }
+}
