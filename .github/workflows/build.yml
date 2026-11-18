@@ -3,7 +3,16 @@ name: Build Nola (iOS)
 on:
   push:
     branches: ["**"]
+    paths-ignore:
+      - "sidestore.json"
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nola-ios-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -18,7 +27,7 @@ jobs:
           xcodebuild -list -project Nola.xcodeproj
 
       # Catches every Swift/compile error. Unsigned because the CI Mac has no
-      # signing identity; simulator/device builds without signing are fine here.
+      # signing identity; SideStore signs the IPA on-device with your Apple ID.
       - name: Build Release (unsigned, generic iOS device)
         run: |
           set -o pipefail
@@ -70,18 +79,92 @@ jobs:
             print("Verified JournalEntry, MoodEntry, and MemorableMoment entities in Nola.mom")
           ' "$MODEL_PATH"
 
+      # Give every build a monotonically increasing version so SideStore
+      # reliably detects updates, even when the marketing version is unchanged.
+      - name: Set automatic app version
+        run: |
+          APP_PATH="build/Build/Products/Release-iphoneos/Nola.app"
+          APP_VERSION="1.0.$GITHUB_RUN_NUMBER"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$APP_PATH/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" "$APP_PATH/Info.plist"
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$APP_PATH/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Info.plist"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_PATH/Info.plist"
+
       # Package the built .app into an unsigned .ipa for SideStore.
-      # SideStore signs it on-device with your Apple ID (personal team).
       - name: Package unsigned .ipa
         run: |
           mkdir -p Payload
           cp -R "build/Build/Products/Release-iphoneos/Nola.app" Payload/
           zip -qry Nola-unsigned.ipa Payload
-          ls -la
+          echo "IPA_SIZE=$(stat -f%z Nola-unsigned.ipa)" >> "$GITHUB_ENV"
+          ls -lh Nola-unsigned.ipa
 
       - name: Upload .ipa artifact
         uses: actions/upload-artifact@v4
         with:
           name: Nola-unsigned-ipa
           path: Nola-unsigned.ipa
+          retention-days: 30
 
+      # A public GitHub Release hosts the IPA so SideStore can download it.
+      - name: Publish IPA release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="sidestore-build-$GITHUB_RUN_ID"
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          gh release create "$TAG" Nola-unsigned.ipa \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Nola $APP_VERSION" \
+            --notes "Automated SideStore build from commit $GITHUB_SHA." \
+            --prerelease
+
+      # Keep one stable source URL. Every successful build replaces its latest
+      # version entry with a link to that build's immutable GitHub Release asset.
+      - name: Update SideStore source
+        if: github.ref == 'refs/heads/main'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+            const branch = "sidestore";
+            const path = "sidestore.json";
+            const sourceURL = `https://raw.githubusercontent.com/${owner}/${repo}/sidestore/sidestore.json`;
+            const releaseURL = `https://github.com/${owner}/${repo}/releases/download/${process.env.RELEASE_TAG}/Nola-unsigned.ipa`;
+            const source = {
+              name: "Nola",
+              identifier: "io.lvnt.nola.sidestore",
+              sourceURL,
+              apps: [{
+                name: "Nola",
+                bundleIdentifier: "com.example.Nola",
+                developerName: "lvnt",
+                subtitle: "A personal AI journal",
+                localizedDescription: "A personal AI journal for writing entries, tracking moods, saving memorable moments, and having thoughtful Companion conversations.",
+                iconURL: `https://raw.githubusercontent.com/${owner}/${repo}/sidestore/Nola/Resources/Assets.xcassets/AppIcon.appiconset/Nola-Black.png`,
+                tintColor: "#252525",
+                versions: [{
+                  version: process.env.APP_VERSION,
+                  date: new Date().toISOString().slice(0, 10),
+                  localizedDescription: `Automated build ${process.env.APP_VERSION}.`,
+                  downloadURL: releaseURL,
+                  size: Number(process.env.IPA_SIZE),
+                  minOSVersion: "15.0"
+                }]
+              }]
+            };
+            const content = Buffer.from(JSON.stringify(source, null, 2)).toString("base64");
+            const existing = await github.rest.repos.getContent({ owner, repo, path, ref: branch });
+            await github.rest.repos.createOrUpdateFileContents({
+              owner,
+              repo,
+              path,
+              branch,
+              message: `Publish Nola ${process.env.APP_VERSION} to SideStore`,
+              sha: existing.data.sha,
+              content
+            });
+            core.info(`Published SideStore feed: ${sourceURL}`);
