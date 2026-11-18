@@ -58,7 +58,7 @@ jobs:
             let expected = Set(["id", "title", "content", "createdAt", "updatedAt", "entryType"])
             let actual = Set(entity.propertiesByName.keys)
             guard expected.isSubset(of: actual) else {
-                fatalError("JournalEntry is missing expected attributes: \\(expected.subtracting(actual))")
+                fatalError("JournalEntry is missing expected attributes: \(expected.subtracting(actual))")
             }
             guard let moodEntity = model.entitiesByName["MoodEntry"] else {
                 fatalError("The compiled model has no MoodEntry entity")
@@ -66,7 +66,7 @@ jobs:
             let expectedMood = Set(["id", "date", "mood", "note"])
             let actualMood = Set(moodEntity.propertiesByName.keys)
             guard expectedMood.isSubset(of: actualMood) else {
-                fatalError("MoodEntry is missing expected attributes: \\(expectedMood.subtracting(actualMood))")
+                fatalError("MoodEntry is missing expected attributes: \(expectedMood.subtracting(actualMood))")
             }
             guard let momentEntity = model.entitiesByName["MemorableMoment"] else {
                 fatalError("The compiled model has no MemorableMoment entity")
@@ -74,7 +74,7 @@ jobs:
             let expectedMoment = Set(["id", "title", "content", "date"])
             let actualMoment = Set(momentEntity.propertiesByName.keys)
             guard expectedMoment.isSubset(of: actualMoment) else {
-                fatalError("MemorableMoment is missing expected attributes: \\(expectedMoment.subtracting(actualMoment))")
+                fatalError("MemorableMoment is missing expected attributes: \(expectedMoment.subtracting(actualMoment))")
             }
             print("Verified JournalEntry, MoodEntry, and MemorableMoment entities in Nola.mom")
           ' "$MODEL_PATH"
